@@ -7,6 +7,8 @@ import secrets
 from dataclasses import dataclass
 from typing import List, Dict, Tuple, Optional
 
+import requests
+
 import numpy as np
 import warnings
 from PIL import Image, ImageOps, ImageEnhance
