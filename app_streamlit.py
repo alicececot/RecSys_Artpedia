@@ -287,6 +287,79 @@ def load_image_local(item: Dict) -> Optional[Image.Image]:
             continue
     return None
 
+def _download_remote_image(split: str, filename: str) -> Optional[Path]:
+    """
+    Scarica un singolo file da Hugging Face Datasets in ./images/<split>/<filename>
+    se IMAGES_BASE_URL è definita. Ritorna il Path locale se scaricato/esistente.
+    """
+    base = os.getenv("IMAGES_BASE_URL") or st.secrets.get("IMAGES_BASE_URL")
+    if not base:
+        return None
+
+    dst_dir = IMG_ROOT / split
+    dst_dir.mkdir(parents=True, exist_ok=True)
+    dst_path = dst_dir / filename
+    if dst_path.exists():
+        return dst_path
+
+    url = f"{base}/{split}/{filename}"
+    try:
+        with st.spinner(f"Scarico immagine…"):
+            r = requests.get(url, stream=True, timeout=60)
+            r.raise_for_status()
+            with open(dst_path, "wb") as f:
+                for chunk in r.iter_content(1024 * 256):
+                    if chunk:
+                        f.write(chunk)
+        return dst_path
+    except Exception as e:
+        # opzionale: st.sidebar.warning(f"Download immagine fallito: {e}")
+        if dst_path.exists():
+            try:
+                dst_path.unlink()
+            except Exception:
+                pass
+        return None
+
+
+def load_image(item: Dict) -> Optional[Image.Image]:
+    """
+    Prova a caricare l'immagine locale; se manca, tenta il download da HF usando
+    lo stesso nome file che la tua app si aspetta (hash8_basename o id.jpg/png),
+    poi riprova il caricamento locale.
+    """
+    # 1) tentativo locale
+    img = load_image_local(item)
+    if img is not None:
+        return img
+
+    # 2) se non c'è, prova a scaricare da HF con i nomi candidati
+    split = str(item.get("split", "train"))
+    url = item.get("img_url") or ""
+    candidates = []
+
+    if url:
+        # nome canonico che già usi in locale
+        candidates.append(hashed_filename(url))
+        # eventuali varianti commonsense del basename (se le hai caricate così)
+        candidates.append(basename_from_url(url))
+
+    # fallback per id.jpg/png
+    iid = item.get("id")
+    if iid is not None:
+        candidates.append(f"{iid}.jpg")
+        candidates.append(f"{iid}.png")
+
+    for fname in candidates:
+        p = _download_remote_image(split, fname)
+        if p is not None and p.exists():
+            img = load_image_local(item)
+            if img is not None:
+                return img
+
+    # 3) se non riesce, None (la UI mostrerà "Immagine locale non trovata")
+    return None
+
 
 @dataclass
 class EmbeddingPack:
@@ -957,7 +1030,7 @@ def screen_seed_select(data: List[Dict]):
             with cols[c]:
                 st.markdown(f'<div class="art-card {"is-selected" if is_sel else ""}">', unsafe_allow_html=True)
 
-                img = load_image_local(item)
+                img = load_image(item)
                 if img is not None:
                     show_img = img
                     if disabled_this and not is_sel:
@@ -1048,7 +1121,7 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
                 break
             gid = rec_ids[idx]; idx += 1
             item = st.session_state.id2item.get(gid, {})
-            img = load_image_local(item)
+            img = load_image(item)
 
             with cols[c]:
                 st.markdown('<div class="art-card">', unsafe_allow_html=True)
