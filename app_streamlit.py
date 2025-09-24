@@ -31,7 +31,7 @@ import unicodedata
 IMG_ROOT = Path("./images")
 APP_TITLE = "Recommender d'Arte"
 DEFAULT_JSON_PATH = "./data/artpedia.json"   # path al JSON unico Artpedia (MIX, con split originali)
-EMB_NPZ_PATH = "/Users/alicececot/tesi-artpedia/data/embeddings/artpedia_blip_base_all.npz"  # embedding pre-calcolati per TUTTO il dataset
+EMB_NPZ_PATH = ""./data/embeddings/artpedia_blip_base_all.npz"  # embedding pre-calcolati per TUTTO il dataset
 IMG_CACHE_DIR = "./.cache/images"
 LOG_DIR = "./logs"
 TOPK_SEED = 12  # 12 immagini nella schermata di selezione
@@ -139,6 +139,23 @@ def ensure_dirs():
     os.makedirs(os.path.dirname(EMB_NPZ_PATH), exist_ok=True)
     os.makedirs(IMG_CACHE_DIR, exist_ok=True)
     os.makedirs(LOG_DIR, exist_ok=True)
+
+def ensure_embeddings_local():
+    """Scarica l'NPZ dagli URL (Secrets/ENV) solo se non esiste in locale."""
+    if os.path.exists(EMB_NPZ_PATH):
+        return
+    url = os.getenv("EMB_URL") or st.secrets.get("EMB_URL")
+    if not url:
+        st.error("Embeddings mancanti: definisci EMB_URL nei Secrets oppure carica l'NPZ in ./data/embeddings/.")
+        st.stop()
+    os.makedirs(os.path.dirname(EMB_NPZ_PATH), exist_ok=True)
+    with st.spinner("Scarico embeddings…"):
+        r = requests.get(url, stream=True, timeout=120)
+        r.raise_for_status()
+        with open(EMB_NPZ_PATH, "wb") as f:
+            for chunk in r.iter_content(1024 * 1024):
+                if chunk:
+                    f.write(chunk)
 
 
 def fuse_modalities(img_vec, vis_vec, ctx_vec, meta_vec, w: Tuple[float, float, float, float]):
@@ -1100,6 +1117,8 @@ def main():
     id2item = {it["id"]: it for it in data}
     st.session_state.id2item = id2item
 
+    ensure_embeddings_local()
+    
     # Precarico embedding precomputati all'avvio (UNA SOLA VOLTA)
     if "pack" not in st.session_state:
         try:
@@ -1112,7 +1131,7 @@ def main():
                     idx_map = {int(g): i for i, g in enumerate(pack.ids.tolist())}
                     order = [idx_map[g] for g in data_ids if g in idx_map]
                     pack = EmbeddingPack(
-                        ids=data_ids[:len(order)],
+                        ids=np.array([g for g in data_ids if g in idx_map], dtype=np.int64),                        
                         img=pack.img[order],
                         vis=pack.vis[order],
                         ctx=pack.ctx[order],
