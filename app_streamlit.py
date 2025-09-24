@@ -25,7 +25,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 import unicodedata
 
-import gspread, json
+import gspread
 from google.oauth2.service_account import Credentials
 
 # =========================
