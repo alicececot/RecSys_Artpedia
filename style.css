@@ -1,0 +1,89 @@
+/* ====== PALETTE GRAYS (override se vuoi) ====== */
+:root{
+  --g-50:  #f8f9fa;
+  --g-100: #f1f3f5;
+  --g-200: #e9ecef;
+  --g-300: #dee2e6;
+  --g-400: #ced4da;
+  --g-500: #adb5bd;
+  --g-600: #868e96;
+  --g-700: #495057;
+  --g-800: #343a40;
+  --g-900: #212529;
+
+  /* ombre e raggi */
+  --btn-radius: 14px;
+  --btn-shadow: 0 4px 14px rgba(0,0,0,.08);
+  --btn-shadow-hover: 0 6px 20px rgba(0,0,0,.12);
+
+  /* focus ring accessibile */
+  --ring: 0 0 0 3px rgba(99, 102, 241, .35); /* viola soft */
+}
+
+/* Target dei bottoni Streamlit */
+.stButton > button,
+.stDownloadButton > button,
+.stFormSubmitButton > button{
+  appearance: none;
+  border: 1px solid var(--g-300);
+  background: linear-gradient(180deg, var(--g-100), var(--g-200));
+  color: var(--g-800);
+  border-radius: var(--btn-radius);
+  padding: 10px 14px;
+  font-weight: 600;
+  letter-spacing: .2px;
+  box-shadow: var(--btn-shadow);
+  transition: transform .08s ease, box-shadow .15s ease, background .15s ease, border-color .15s ease, color .15s ease;
+  width: 100%;              /* effetto "stretch" gradevole */
+}
+
+/* Hover: un filo più scuro + ombra */
+.stButton > button:hover,
+.stDownloadButton > button:hover,
+.stFormSubmitButton > button:hover{
+  background: linear-gradient(180deg, var(--g-200), var(--g-300));
+  border-color: var(--g-400);
+  box-shadow: var(--btn-shadow-hover);
+  transform: translateY(-1px);
+}
+
+/* Active/pressed: “press” fisico */
+.stButton > button:active,
+.stDownloadButton > button:active,
+.stFormSubmitButton > button:active{
+  transform: translateY(0);
+  background: linear-gradient(180deg, var(--g-300), var(--g-400));
+  border-color: var(--g-500);
+  box-shadow: var(--btn-shadow);
+}
+
+/* Focus ring accessibile */
+.stButton > button:focus-visible,
+.stDownloadButton > button:focus-visible,
+.stFormSubmitButton > button:focus-visible{
+  outline: none;
+  box-shadow: var(--btn-shadow-hover), var(--ring);
+}
+
+/* Disabled: più chiaro e non interattivo */
+.stButton > button:disabled,
+.stDownloadButton > button:disabled,
+.stFormSubmitButton > button:disabled{
+  opacity: .65;
+  cursor: not-allowed;
+  background: linear-gradient(180deg, var(--g-100), var(--g-100));
+  border-color: var(--g-300);
+  color: var(--g-600);
+  box-shadow: none;
+  transform: none;
+}
+
+.exp-box{
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid #2ecc71 !important;              /* bordo verde */
+  background: linear-gradient(180deg,#f1fbf6,#e9f9f0) !important; /* verde chiaro */
+  border-radius: 12px;
+  color: #174d2d;                                     /* testo verde scuro */
+}
+.exp-box strong{ color:#146e3a; }
