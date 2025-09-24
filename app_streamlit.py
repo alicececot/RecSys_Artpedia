@@ -25,6 +25,8 @@ from pathlib import Path
 from urllib.parse import urlparse
 import unicodedata
 
+import gspread, json
+from google.oauth2.service_account import Credentials
 
 # =========================
 # CONFIGURAZIONE
@@ -158,6 +160,26 @@ def ensure_embeddings_local():
             for chunk in r.iter_content(1024 * 1024):
                 if chunk:
                     f.write(chunk)
+
+@st.cache_resource
+def get_gsheet_worksheet():
+    """
+    Apre il foglio Google usando la service account nei Secrets.
+    Ritorna il primo worksheet (sheet1).
+    """
+    sa_info = st.secrets["GOOGLE_SERVICE_ACCOUNT_JSON"]
+    # se nei Secrets l'hai messo come stringa multi-linea:
+    if isinstance(sa_info, str):
+        sa_info = json.loads(sa_info)
+    creds = Credentials.from_service_account_info(
+        sa_info,
+        scopes=["https://www.googleapis.com/auth/spreadsheets",
+                "https://www.googleapis.com/auth/drive"]
+    )
+    gc = gspread.authorize(creds)
+    sh = gc.open_by_key(st.secrets["SHEETS_SPREADSHEET_ID"])
+    ws = sh.sheet1  # usa il primo tab del foglio
+    return ws
 
 
 def fuse_modalities(img_vec, vis_vec, ctx_vec, meta_vec, w: Tuple[float, float, float, float]):
@@ -597,7 +619,29 @@ def log_row(name: str, row: Dict):
         # Assicura che tutte le colonne siano presenti
         complete_row = {col: row.get(col, "") for col in HEADERS[name]}
         writer.writerow(complete_row)
-    
+
+def append_to_google_sheet(row: Dict):
+    """
+    Aggiunge una riga al foglio Google con le stesse colonne del CSV.
+    Assume che la riga 1 del foglio contenga già l'header esatto.
+    """
+    ws = get_gsheet_worksheet()
+
+    header = HEADERS["art_recommendation_study"]  # ordine colonne già definito nel tuo codice
+    values = []
+    for col in header:
+        v = row.get(col, "")
+        # Normalizza valori None
+        if v is None:
+            v = ""
+        # Lasciamo le liste come stringhe JSON (il tuo row le ha già così via format_list_for_csv)
+        values.append(v)
+    try:
+        ws.append_row(values, value_input_option="USER_ENTERED")
+    except Exception as e:
+        # Non bloccare l'app se il foglio non è raggiungibile
+        st.sidebar.warning(f"Append su Google Sheets non riuscito: {e}")
+
     
 def get_artwork_titles(artwork_ids: List[int]) -> str:
     """Converti IDs opere in stringa di titoli leggibile"""
@@ -673,7 +717,7 @@ def log_complete_study_session(rec_ids, scores, ratings, rec_duration_ms):
         "selected_artwork_titles": get_artwork_titles(st.session_state.seed_selected_ids),
         "recommended_artwork_titles": get_artwork_titles(rec_ids)
     }
-    
+    append_to_google_sheet(row)
     log_row("art_recommendation_study", row)
 
 # =========================
