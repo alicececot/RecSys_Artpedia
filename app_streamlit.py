@@ -33,7 +33,7 @@ import unicodedata
 IMG_ROOT = Path("./images")
 APP_TITLE = "Recommender d'Arte"
 DEFAULT_JSON_PATH = "./data/artpedia.json"   # path al JSON unico Artpedia (MIX, con split originali)
-EMB_NPZ_PATH = ""./data/embeddings/artpedia_blip_base_all.npz"  # embedding pre-calcolati per TUTTO il dataset
+EMB_NPZ_PATH = "./data/embeddings/artpedia_blip_base_all.npz"  # embedding pre-calcolati per TUTTO il dataset
 IMG_CACHE_DIR = "./.cache/images"
 LOG_DIR = "./logs"
 TOPK_SEED = 12  # 12 immagini nella schermata di selezione
