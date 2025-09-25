@@ -80,30 +80,3 @@
 }
 .exp-box strong{ color:#146e3a; }
 
-/* 1) La card è una colonna flessibile con bottone in fondo */
-.art-card{
-  display:flex;
-  flex-direction:column;
-  gap:.6rem;
-  height:100%;
-}
-
-/* 2) Contenitore dell'immagine: quadrato, con ritaglio */
-.art-card [data-testid="stImage"]{
-  width:100% !important;
-  aspect-ratio:1 / 1 !important;   /* forza il quadrato */
-  position:relative;
-  overflow:hidden;
-  border-radius:10px;
-}
-
-/* 3) L'immagine riempie il contenitore quadrato */
-.art-card [data-testid="stImage"] img{
-  position:absolute;
-  inset:0;
-  width:100% !important;
-  height:100% !important;          /* override dell’height:auto di Streamlit */
-  object-fit:cover !important;      /* crop centrale */
-  object-position:center center;
-  display:block;
-}
