@@ -917,7 +917,9 @@ def screen_seed_select(data: List[Dict]):
                 
                 if st.button("Ingrandisci 🔍", key=f"tap_{gid}_{r}_{c}",width='stretch'):
                     @st.dialog("Immagine originale")
-                    st.image(img)  
+                    def show_original():
+                        st.image(img)
+                    show_original()
                     
                 if img is not None:
                     show_img = cropped_img
