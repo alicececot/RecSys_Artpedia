@@ -915,7 +915,7 @@ def screen_seed_select(data: List[Dict]):
                 img = load_image(item)
                 cropped_img = ImageOps.fit(img, (450, 450), method=Image.Resampling.LANCZOS,centering=(0.5, 0.5))
                 
-                if st.button("Ingrandisci 🔍", key=f"tap_{gid}_{r}_{c}",width='stretch'):
+                if st.button("Ingrandisci 🔍", key=f"zoom_{gid}_{r}_{c}",width='stretch'):
                     @st.dialog("Immagine originale")
                     def show_original():
                         st.image(img)
