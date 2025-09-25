@@ -897,7 +897,6 @@ def screen_seed_select(data: List[Dict]):
             3,
             gap="small",
             border=True,
-            vertical_alignment="bottom",
             width=1500,
         )
         for c in range(cols_per_row):
@@ -991,7 +990,6 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
             3,
             gap="small",
             border=True,
-            vertical_alignment="bottom",
             width=1500,
         )
         for c in range(cols_per_row):
