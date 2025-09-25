@@ -28,18 +28,14 @@ import unicodedata
 import gspread
 from google.oauth2.service_account import Credentials
 
-# =========================
-# CONFIGURAZIONE
-# =========================
-
 IMG_ROOT = Path("./images")
 APP_TITLE = "Recommender d'Arte"
-DEFAULT_JSON_PATH = "./data/artpedia.json"   # path al JSON unico Artpedia (MIX, con split originali)
-EMB_NPZ_PATH = "./data/embeddings/artpedia_blip_base_all.npz"  # embedding pre-calcolati per TUTTO il dataset
+DEFAULT_JSON_PATH = "./data/artpedia.json"   
+EMB_NPZ_PATH = "./data/embeddings/artpedia_blip_base_all.npz"  
 IMG_CACHE_DIR = "./.cache/images"
 LOG_DIR = "./logs"
-TOPK_SEED = 12  # 12 immagini nella schermata di selezione
-TOPK_REC  = 12  # 12 raccomandazioni nella schermata successiva
+TOPK_SEED = 12  
+TOPK_REC  = 12  
 
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY") or st.secrets["OPENROUTER_API_KEY"]
 client = OpenAI(
@@ -49,20 +45,12 @@ client = OpenAI(
 
 ALPHA, BETA, GAMMA, DELTA = 0.50, 0.25, 0.15, 0.10
 
-
-# =========================
-# CSS loader
-# =========================
 def load_css(path: str = "./style.css"):
     try:
         with open(path, "r", encoding="utf-8") as f:
             st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
     except Exception as e:
         st.sidebar.warning(f"CSS non caricato ({path}): {e}")
-
-# =========================
-# Utility base
-# =========================
 
 @st.cache_data(show_spinner=False)
 def load_artpedia(json_path: str) -> List[Dict]:
@@ -72,8 +60,6 @@ def load_artpedia(json_path: str) -> List[Dict]:
     items: List[Dict] = []
 
     if isinstance(data, dict):
-        # Caso A: dict di item -> chiave = id
-        # Caso B: dict per split -> chiave = nome split, valore = lista di item
         looks_like_items = all(isinstance(v, dict) for v in data.values())
         if looks_like_items:
             running_id = 0
@@ -81,7 +67,6 @@ def load_artpedia(json_path: str) -> List[Dict]:
                 if not isinstance(it, dict):
                     continue
                 it = it.copy()
-                # prova a usare l'id della chiave, altrimenti assegna un id progressivo
                 try:
                     gid = int(k)
                 except Exception:
@@ -96,7 +81,6 @@ def load_artpedia(json_path: str) -> List[Dict]:
                 items.append(it)
                 running_id += 1
         else:
-            # dict per split: {split: [items]}
             running_id = 0
             for split_name, lst in data.items():
                 if not isinstance(lst, list):
@@ -116,7 +100,6 @@ def load_artpedia(json_path: str) -> List[Dict]:
                     running_id += 1
 
     elif isinstance(data, list):
-        # lista MIX piatta
         for i, it in enumerate(data):
             if not isinstance(it, dict):
                 continue
@@ -145,7 +128,6 @@ def ensure_dirs():
     os.makedirs(LOG_DIR, exist_ok=True)
 
 def ensure_embeddings_local():
-    """Scarica l'NPZ dagli URL (Secrets/ENV) solo se non esiste in locale."""
     if os.path.exists(EMB_NPZ_PATH):
         return
     url = os.getenv("EMB_URL") or st.secrets.get("EMB_URL")
@@ -163,13 +145,8 @@ def ensure_embeddings_local():
 
 @st.cache_resource
 def get_gsheet_worksheet():
-    """
-    Apre il foglio Google usando la service account nei Secrets.
-    """
-    # Ora sarà automaticamente un dizionario grazie al formato TOML corretto
     sa_info = dict(st.secrets["GOOGLE_SERVICE_ACCOUNT_JSON"])
     
-    # Fissa i newlines nella private key
     if "private_key" in sa_info and isinstance(sa_info["private_key"], str):
         sa_info["private_key"] = sa_info["private_key"].replace("\\n", "\n")
     
@@ -216,27 +193,19 @@ def hashed_filename(url: str) -> str:
     return f"{h}_{basename_from_url(url)}"
 
 def _open_resized(path: Path, max_megapixels: int = 20, max_side: int = 2048) -> Optional[Image.Image]:
-    """
-    Apre l'immagine ignorando il limite MAX_IMAGE_PIXELS e la riduce
-    entro:
-      - area massima = max_megapixels (MP)
-      - lato massimo = max_side (px)
-    """
     if path is None or not path.exists():
         return None
 
     old_max = Image.MAX_IMAGE_PIXELS
     try:
-        Image.MAX_IMAGE_PIXELS = None  # niente DecompressionBomb
+        Image.MAX_IMAGE_PIXELS = None  
         warnings.simplefilter("ignore", Image.DecompressionBombWarning)
 
         with Image.open(path) as im:
-            im = ImageOps.exif_transpose(im)  # orientamento corretto
+            im = ImageOps.exif_transpose(im)  
 
             w, h = im.size
-            # vincolo lato
             s_side = min(max_side / max(w, h), 1.0)
-            # vincolo MP
             max_px = max_megapixels * 1_000_000
             s_mp = (max_px / (w * h)) ** 0.5 if (w * h) > max_px else 1.0
             s = min(s_side, s_mp)
@@ -255,26 +224,15 @@ def _open_resized(path: Path, max_megapixels: int = 20, max_side: int = 2048) ->
         Image.MAX_IMAGE_PIXELS = old_max
 
 def load_image_local(item: Dict) -> Optional[Image.Image]:
-    """
-    Carica l'immagine SOLO dalla cartella locale:
-    ./images/<split>/<hash8>_<basename_url>.jpg
-
-    Tenta anche fallback utili:
-    - qualunque file che finisca con _<basename_url>
-    - <id>.jpg / <id>.png
-    """
     split = str(item.get("split", "train"))
     url = item.get("img_url") or ""
 
     candidates = []
-    # nome "canone" usato dallo script di preparazione: 8 hex + "_" + basename
     if url:
-        fname = hashed_filename(url)                 # es. 0a4d6678_Diego_...jpg
+        fname = hashed_filename(url)                 
         candidates.append(IMG_ROOT / split / fname)
-        # fallback: qualunque file che termini con _<basename_url>
         candidates.extend((IMG_ROOT / split).glob(f"*_{basename_from_url(url)}"))
 
-    # ulteriori fallback: id.jpg / id.png
     iid = item.get("id")
     if iid is not None:
         candidates.append(IMG_ROOT / split / f"{iid}.jpg")
@@ -283,7 +241,7 @@ def load_image_local(item: Dict) -> Optional[Image.Image]:
     for p in candidates:
         try:
             if p and p.exists():
-                im = _open_resized(p)     # <— usa l’opener che riduce
+                im = _open_resized(p)     
                 if im is not None:
                     return im
         except Exception:
@@ -291,10 +249,6 @@ def load_image_local(item: Dict) -> Optional[Image.Image]:
     return None
 
 def _download_remote_image(split: str, filename: str) -> Optional[Path]:
-    """
-    Scarica un singolo file da Hugging Face Datasets in ./<split>/<filename>
-    se IMAGES_BASE_URL è definita. Ritorna il Path locale se scaricato/esistente.
-    """
     base = os.getenv("IMAGES_BASE_URL") or st.secrets.get("IMAGES_BASE_URL")
     if not base:
         return None
@@ -316,7 +270,6 @@ def _download_remote_image(split: str, filename: str) -> Optional[Path]:
                         f.write(chunk)
         return dst_path
     except Exception as e:
-        # opzionale: st.sidebar.warning(f"Download immagine fallito: {e}")
         if dst_path.exists():
             try:
                 dst_path.unlink()
@@ -326,28 +279,20 @@ def _download_remote_image(split: str, filename: str) -> Optional[Path]:
 
 
 def load_image(item: Dict) -> Optional[Image.Image]:
-    """
-    Prova a caricare l'immagine locale; se manca, tenta il download da HF usando
-    lo stesso nome file che la tua app si aspetta (hash8_basename o id.jpg/png),
-    poi riprova il caricamento locale.
-    """
-    # 1) tentativo locale
     img = load_image_local(item)
     if img is not None:
         return img
 
-    # 2) se non c'è, prova a scaricare da HF con i nomi candidati
     split = str(item.get("split", "train"))
     url = item.get("img_url") or ""
     candidates = []
 
     if url:
-        # nome canonico che già usi in locale
+        
         candidates.append(hashed_filename(url))
-        # eventuali varianti commonsense del basename (se le hai caricate così)
+        
         candidates.append(basename_from_url(url))
 
-    # fallback per id.jpg/png
     iid = item.get("id")
     if iid is not None:
         candidates.append(f"{iid}.jpg")
@@ -360,7 +305,6 @@ def load_image(item: Dict) -> Optional[Image.Image]:
             if img is not None:
                 return img
 
-    # 3) se non riesce, None (la UI mostrerà "Immagine locale non trovata")
     return None
 
 
@@ -374,7 +318,6 @@ class EmbeddingPack:
 
 @st.cache_resource(show_spinner=True)
 def load_embeddings_from_file(npz_path: str) -> EmbeddingPack:
-    """Carica SOLO da NPZ (niente calcolo) e ritorna l'EmbeddingPack."""
     if not os.path.exists(npz_path):
         raise FileNotFoundError(f"File NPZ non trovato: {npz_path}")
     npz = np.load(npz_path)
@@ -386,10 +329,6 @@ def load_embeddings_from_file(npz_path: str) -> EmbeddingPack:
         meta=npz["meta"],
     )
 
-
-# =========================
-# Explainability
-# =========================
 
 def decompose_similarity(u_vecs: Tuple[np.ndarray,np.ndarray,np.ndarray,np.ndarray],
                          v_vecs: Tuple[np.ndarray,np.ndarray,np.ndarray,np.ndarray],
@@ -405,7 +344,6 @@ def decompose_similarity(u_vecs: Tuple[np.ndarray,np.ndarray,np.ndarray,np.ndarr
     return total, {"IMG": s_img, "VIS": s_vis, "CTX": s_ctx, "META": s_meta}
 
 def _format_list_it(names):
-    """Restituisce "A", "A e B" oppure "A, B e C"."""
     names = [n for n in names if n]
     if not names:
         return ""
@@ -416,37 +354,25 @@ def _format_list_it(names):
     return f"{', '.join(names[:-1])} e {names[-1]}"
 
 
-# =========================
-# CONTENT-BASED
-# =========================
 def content_based_explanation_gid(rec_gid: int,
                                   seed_gids: list,
                                   pack,
                                   w,
                                   k_refs: int = 2) -> str:
-    """
-    Crea la frase: 'Ti abbiamo raccomandato {A} perché hai apprezzato opere come {B} e {C}.'
-    usando la similarità tra l'opera raccomandata e i seed selezionati.
-    """
-    # mappa gid -> indice di riga negli embedding
     gid_list = pack.ids.tolist()
     idx_map = {int(g): i for i, g in enumerate(gid_list)}
 
-    # fallback se mancano dati
     item = st.session_state.id2item.get(rec_gid, {})
     rec_title = item.get("title", "questa opera")
 
     if rec_gid not in idx_map or not seed_gids:
         return f"Ti abbiamo raccomandato *{rec_title}* perché riteniamo che sia in linea con i tuoi gusti."
 
-    # embedding fusi per tutto il catalogo (stessa fusione usata nel ranking)
     fused = fuse_modalities(pack.img, pack.vis, pack.ctx, pack.meta, w)
 
-    # vettore della raccomandazione
     rv = fused[idx_map[rec_gid]]
     rvn = np.linalg.norm(rv) + 1e-9
 
-    # calcola similarità con i seed
     sims = []
     for sg in seed_gids:
         i = idx_map.get(int(sg))
@@ -459,11 +385,9 @@ def content_based_explanation_gid(rec_gid: int,
     if not sims:
         return f"Ti abbiamo raccomandato *{rec_title}* perché riteniamo che sia in linea con i tuoi gusti."
 
-    # prendi i k riferimenti più simili (2 di default)
     sims.sort(key=lambda x: x[1], reverse=True)
     top_refs = [g for g, _ in sims[:max(1, k_refs)]]
 
-    # titoli delle opere di riferimento
     ref_titles = []
     for g in top_refs:
         it = st.session_state.id2item.get(int(g), {})
@@ -478,22 +402,18 @@ def content_based_explanation_gid(rec_gid: int,
     return f"Ti abbiamo raccomandato *{rec_title}* perché hai apprezzato opere come *{ref_list}*."
 
 def get_explanation_for_item(rec_gid: int, seed_gids: list, pack, w) -> str:
-    """
-    Restituisce la spiegazione in base al gruppo sperimentale dell'utente.
-    """
     item = st.session_state.id2item.get(rec_gid, {})
     rec_title = item.get("title", "questa opera")
     
     if st.session_state.exp_style == "CONTENT-BASED":
         return content_based_explanation_gid(rec_gid, seed_gids, pack, w, k_refs=2)
-    else:  # LLM-EXPLANATION
-        # Prepara le preferenze dell'utente basate sulle opere seed selezionate
+    else:  
+        
         prefs = {
             "liked_titles": [],
             "liked_styles": []
         }
         
-        # Estrai titoli dalle opere seed
         for seed_gid in seed_gids:
             seed_item = st.session_state.id2item.get(seed_gid, {})
             if seed_item.get("title"):
@@ -503,14 +423,7 @@ def get_explanation_for_item(rec_gid: int, seed_gids: list, pack, w) -> str:
             explanation, latency_ms = generate_llm_explanation_gemini_flash(item, prefs)
             return explanation
         except Exception as e:
-            # Fallback a spiegazione content-based in caso di errore
             return f"Ti abbiamo raccomandato *{rec_title}* perché riteniamo che sia in linea con i tuoi gusti."
-
-# =========================
-# LLM
-# =========================
-
-
 
 def build_llm_system() -> str:
     return ("Sei un esperto di storia dell'arte che genera spiegazioni chiare e concise "
@@ -524,11 +437,9 @@ def build_llm_user_context(item: dict, prefs: dict) -> str:
         lst = (lst or [])[:k]
         return [s.strip().replace("\n", " ") for s in lst if s and s.strip()]
     
-    # Estrai frasi visive e contestuali dall'opera
     VIS = " | ".join(_slice(item.get("visual_sentences", []), 2))
     CTX = " | ".join(_slice(item.get("contextual_sentences", []), 1))
     
-    # Preferenze utente
     liked_titles = ", ".join(_slice(prefs.get("liked_titles", []), 3))
     liked_styles = ", ".join(_slice(prefs.get("liked_styles", []), 3))
     
@@ -547,28 +458,15 @@ def build_llm_user_context(item: dict, prefs: dict) -> str:
 
 def generate_llm_explanation_gemini_flash(item: dict, prefs: dict,
                                           max_tokens: int = 80, temperature: float = 0.2):
-    """
-    Genera una spiegazione LLM per una raccomandazione d'arte usando Gemini Flash via OpenRouter.
-    
-    Args:
-        item: Dizionario con i dati dell'opera raccomandata
-        prefs: Dizionario con le preferenze dell'utente (titoli e stili apprezzati)
-        max_tokens: Numero massimo di token per la risposta
-        temperature: Livello di creatività (0.0-1.0)
-    
-    Returns:
-        tuple: (testo spiegazione, latenza in millisecondi)
-    """
     system = build_llm_system()
     user = build_llm_user_context(item, prefs)
 
     try:
         t0 = time.time()
         
-        # Aggiungi headers opzionali per OpenRouter rankings
         extra_headers = {
-            "HTTP-Referer": "https://your-art-recommender.com",  # Sostituisci con il tuo URL
-            "X-Title": "Art Recommendation Study"  # Nome del tuo studio
+            "HTTP-Referer": "https://your-art-recommender.com",  
+            "X-Title": "Art Recommendation Study"
         }
         
         resp = client.chat.completions.create(
@@ -579,14 +477,12 @@ def generate_llm_explanation_gemini_flash(item: dict, prefs: dict,
             ],
             max_tokens=max_tokens,
             temperature=temperature,
-            # Aggiungi gli headers extra per OpenRouter
             extra_headers=extra_headers
         )
         
         text = resp.choices[0].message.content.strip()
         latency_ms = (time.time() - t0) * 1000.0
         
-        # Log della richiesta LLM (opzionale, per debug)
         if "llm_requests" not in st.session_state:
             st.session_state.llm_requests = []
         
@@ -600,11 +496,9 @@ def generate_llm_explanation_gemini_flash(item: dict, prefs: dict,
         return text, latency_ms
         
     except Exception as e:
-        # Log dell'errore
         error_msg = f"Errore LLM per opera {item.get('id', 'unknown')}: {str(e)}"
-        print(error_msg)  # Puoi sostituire con un logger più sofisticato
+        print(error_msg)  
         
-        # Spiegazione di fallback
         fallback_explanation = (
             f"Ti raccomandiamo '{item.get('title', 'questa opera')}' "
             f"perché presenta caratteristiche in linea con le opere che hai apprezzato. "
@@ -612,10 +506,6 @@ def generate_llm_explanation_gemini_flash(item: dict, prefs: dict,
         )
         
         return fallback_explanation, 0
-
-# =========================
-# Recommender core
-# =========================
 
 def build_user_profile(pack: EmbeddingPack, idx_list: List[int], w: Tuple[float,float,float,float]) -> Tuple[np.ndarray,np.ndarray,np.ndarray,np.ndarray]:
     if not idx_list:
@@ -680,9 +570,7 @@ HEADERS = {
 }
 
 
-
 def log_row(name: str, row: Dict):
-    """Logga una riga nel CSV unico"""
     ensure_dirs()
     path = os.path.join(LOG_DIR, f"{name}.csv")
     is_new = not os.path.exists(path)
@@ -692,35 +580,26 @@ def log_row(name: str, row: Dict):
         if is_new:
             writer.writeheader()
         
-        # Assicura che tutte le colonne siano presenti
         complete_row = {col: row.get(col, "") for col in HEADERS[name]}
         writer.writerow(complete_row)
 
 def append_to_google_sheet(row: Dict):
-    """
-    Aggiunge una riga al foglio Google con le stesse colonne del CSV.
-    Assume che la riga 1 del foglio contenga già l'header esatto.
-    """
     ws = get_gsheet_worksheet()
 
-    header = HEADERS["art_recommendation_study"]  # ordine colonne già definito nel tuo codice
+    header = HEADERS["art_recommendation_study"]  
     values = []
     for col in header:
         v = row.get(col, "")
-        # Normalizza valori None
         if v is None:
             v = ""
-        # Lasciamo le liste come stringhe JSON (il tuo row le ha già così via format_list_for_csv)
         values.append(v)
     try:
         ws.append_row(values, value_input_option="USER_ENTERED")
     except Exception as e:
-        # Non bloccare l'app se il foglio non è raggiungibile
         st.sidebar.warning(f"Append su Google Sheets non riuscito: {e}")
 
     
 def get_artwork_titles(artwork_ids: List[int]) -> str:
-    """Converti IDs opere in stringa di titoli leggibile"""
     titles = []
     for art_id in artwork_ids:
         item = st.session_state.id2item.get(art_id, {})
@@ -731,19 +610,15 @@ def get_artwork_titles(artwork_ids: List[int]) -> str:
     return " | ".join(titles)
 
 def format_list_for_csv(data: List) -> str:
-    """Formatta liste in stringa JSON compatta"""
     return json.dumps(data, ensure_ascii=False)
 
 def log_complete_study_session(rec_ids, scores, ratings, rec_duration_ms):
-    """Logga tutti i dati dello studio in una riga unica"""
     
     explanation_type = "LLM" if st.session_state.exp_style == "LLM-EXPLANATION" else "CONTENT_BASED"
     
-    # Calcola tempi
     total_duration = int((time.time() - st.session_state.seed_start_ts) * 1000)
     selection_duration = int((st.session_state.rec_start_ts - st.session_state.seed_start_ts) * 1000)
     
-    # Prepara i dati per il CSV
     row = {
         # IDENTIFICAZIONE
         "session_id": st.session_state.slate_id,
@@ -761,7 +636,6 @@ def log_complete_study_session(rec_ids, scores, ratings, rec_duration_ms):
         "art_knowledge_level": st.session_state.user_demographics.get("art_knowledge_level", ""),
         "heard_recommenders": st.session_state.user_demographics.get("heard_recommenders", ""),
 
-        
         # SELEZIONE OPERE INIZIALI
         "initial_artwork_pool": format_list_for_csv(st.session_state.seed_pool_ids),
         "selected_artworks": format_list_for_csv(st.session_state.seed_selected_ids),
@@ -789,19 +663,14 @@ def log_complete_study_session(rec_ids, scores, ratings, rec_duration_ms):
         # TEMPI
         "total_session_time_ms": total_duration,
         
-        # METADATI PER ANALISI
         "selected_artwork_titles": get_artwork_titles(st.session_state.seed_selected_ids),
         "recommended_artwork_titles": get_artwork_titles(rec_ids)
     }
     append_to_google_sheet(row)
     log_row("art_recommendation_study", row)
 
-# =========================
-# UI — Stato e Schermate
-# =========================
 
 def _assign_group(user_id: str) -> str:
-    """Ritorna 'CONTENT-BASED' o 'LLM-EXPLANATION' in modo deterministico dall'user_id."""
     h = int(hashlib.sha256(user_id.encode("utf-8")).hexdigest(), 16)
     return "CONTENT-BASED" if (h % 2 == 0) else "LLM-EXPLANATION"
 
@@ -818,7 +687,7 @@ def _init_session():
     st.session_state.setdefault("seed_selected_ids", [])
     st.session_state.setdefault("seed_start_ts", 0)
     st.session_state.setdefault("rec_start_ts", 0)
-    st.session_state.setdefault("slate_id", None)  # Inizializza a None
+    st.session_state.setdefault("slate_id", None)  
 
 
 def screen_consent():
@@ -830,7 +699,7 @@ def screen_consent():
             st.warning("Devi acconsentire per proseguire.")
             return
         
-        st.session_state.phase = "demographic"  # Vai a demographic invece di seed
+        st.session_state.phase = "demographic"  
         st.rerun()
 
 def screen_demographic():
@@ -863,7 +732,6 @@ def screen_demographic():
     if profession == "Altro":
         other_profession = st.text_input("Specifica la tua professione*", placeholder="Inserisci la tua professione", key="demographic_other_prof")
 
-    # Validazione e salvataggio
     if st.button("Continua", width='stretch'):
         errors = []
         if not age_range: errors.append("L'età è obbligatoria")
@@ -888,15 +756,9 @@ def screen_demographic():
         st.rerun()
 
 def screen_background_questions():
-    """
-    Schermata con 4 domande di background sull'arte.
-    Salva i risultati in st.session_state.user_demographics
-    e, se valido, passa alla fase successiva (seed).
-    """
     st.header("Domande preliminari")
     st.write("Rispondi a queste domande per aiutarci a capire il tuo rapporto con l'arte.")
 
-    # 1) Frequenza visite a mostre/musei (obbligatoria)
     visit_opts = ["", "Mai", "1–2 volte", "3–5 volte", "Più di 5 volte"]
     default_visit = st.session_state.user_demographics.get("museum_visits", "")
     visit_museums = st.selectbox(
@@ -905,7 +767,6 @@ def screen_background_questions():
         key="q_museum_visits"
     )
 
-    # 2) Apprezzamento dell’arte (obbligatoria)
     appreciate_opts = ["", "Per niente", "Poco", "Abbastanza", "Molto"]
     default_app = st.session_state.user_demographics.get("appreciate_art", "")
     appreciate_art = st.selectbox(
@@ -914,7 +775,6 @@ def screen_background_questions():
         key="q_appreciate_art"
     )
 
-    # 3) Conoscenza/esperienza in arte (obbligatoria)
     knowledge_opts = ["", "Per niente", "Poco", "Abbastanza", "Molto"]
     default_kn = st.session_state.user_demographics.get("art_knowledge_level", "")
     art_knowledge_level = st.selectbox(
@@ -923,7 +783,6 @@ def screen_background_questions():
         key="q_art_knowledge_level"
     )
 
-    # 4) Conoscenza dei sistemi di raccomandazione (obbligatoria)
     heard_opts = ["", "Si", "No"]
     default_heard = st.session_state.user_demographics.get("heard_recommenders", "")
     heard_recommenders = st.selectbox(
@@ -932,7 +791,6 @@ def screen_background_questions():
         key="q_heard_recs"
     )
 
-    # ---- Validazione + salvataggio ----
     if st.button("Inizia", width="stretch"):
         errors = []
         if not visit_museums:      errors.append("La frequenza di visita ai musei è obbligatoria")
@@ -945,7 +803,6 @@ def screen_background_questions():
                 st.error(e)
             return
 
-        # Salva nello stato utente
         st.session_state.user_demographics.update({
             "museum_visits": visit_museums,
             "appreciate_art": appreciate_art,
@@ -953,7 +810,6 @@ def screen_background_questions():
             "heard_recommenders": heard_recommenders,
         })
 
-        # Avanza al seed
         st.session_state.phase = "seed"
         st.session_state.seed_start_ts = time.time()
         st.rerun()
@@ -985,26 +841,23 @@ def find_local_image_path(item) -> Optional[Path]:
     return None
 
 def _sample_seed_pool(all_ids: List[int], k: int = TOPK_SEED) -> List[int]:
-    valid = set(map(int, st.session_state.pack.ids.tolist()))   # solo ID con embedding
+    valid = set(map(int, st.session_state.pack.ids.tolist()))   
     ids = [g for g in all_ids if g in valid]
     random.shuffle(ids)
 
     out, scanned = [], 0
-    budget = 10 * k  # non scandire tutto il dataset
+    budget = 10 * k 
 
     for gid in ids:
         it = st.session_state.id2item[gid]
 
-        # 1) se c'è già in locale, ok
         if find_local_image_path(it):
             out.append(gid)
         else:
-            # 2) tenta un download "on demand" da HF
             split = str(it.get("split", "train"))
             url = it.get("img_url") or ""
             tried = False
 
-            # prova prima il nome canonico hash8_basename
             if url and not tried:
                 fname = hashed_filename(url)
                 p = _download_remote_image(split, fname)
@@ -1012,7 +865,6 @@ def _sample_seed_pool(all_ids: List[int], k: int = TOPK_SEED) -> List[int]:
                 if p and p.exists():
                     out.append(gid)
 
-            # se non basta, prova anche il basename "puro"
             if url and (len(out) < k) and not find_local_image_path(it):
                 base = basename_from_url(url)
                 p2 = _download_remote_image(split, base)
@@ -1035,7 +887,7 @@ def screen_seed_select(data: List[Dict]):
         all_ids = list(st.session_state.id2item.keys())
         st.session_state.seed_pool_ids = _sample_seed_pool(all_ids, TOPK_SEED)
 
-    ids = st.session_state.seed_pool_ids[:12]  # 3×4
+    ids = st.session_state.seed_pool_ids[:12]  
     sel = set(st.session_state.seed_selected_ids)
 
     rows, cols_per_row = 4, 3
@@ -1111,15 +963,12 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
 
     selected = st.session_state.seed_selected_ids
 
-    # mappa gid -> indice riga negli embedding
     gid_to_row = {int(g): i for i, g in enumerate(pack.ids.tolist())}
     seed_rows = [gid_to_row[g] for g in selected if g in gid_to_row]
 
-    # Profilo utente + ranking
     user_vecs = build_user_profile(pack, seed_rows, w)
     results = rank_items(pack, user_vecs, w, exclude_global_idx=selected, topk=TOPK_REC)
 
-    # STEP A: accumulo
     rec_ids: List[int] = []
     scores: List[float] = []
     explanations: Dict[int, str] = {}
@@ -1128,7 +977,6 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
         rec_ids.append(gid)
         scores.append(round(score, 6))
         explanation = get_explanation_for_item(gid, selected, pack, w)
-        # Pulisci e formatta il testo (rimuovi markdown se presente)
         explanation_clean = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", explanation)
         explanation_clean = re.sub(r"\*(.+?)\*", r"<em>\1</em>", explanation_clean)
         explanations[gid] = explanation_clean
@@ -1176,7 +1024,6 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
 
                 st.markdown('</div>', unsafe_allow_html=True)
 
-    # ====== BLOCCO LIKERT ======
     st.markdown("""
         <div style='border:2px solid var(--accent); padding: 16px; border-radius: 8px;'>
           <h3>Dicci cosa pensi di queste raccomandazioni</h3> 
@@ -1236,36 +1083,28 @@ def screen_done():
     st.caption(f"Il tuo codice partecipante: {st.session_state.user_id}")
 
 
-# =========================
-# MAIN
-# =========================
 
 def main():
     st.set_page_config(page_title=APP_TITLE, layout="wide")
     st.title(APP_TITLE)
     load_css("./style.css")
 
-
-    # JSON path (puoi mettere qui il path assoluto se preferisci)
     json_path = st.sidebar.text_input("Percorso JSON Artpedia", value=DEFAULT_JSON_PATH)
     if not os.path.exists(json_path):
         st.warning("Percorso JSON non trovato. Specifica il path corretto al file Artpedia.")
         st.stop()
 
-    # Carico Artpedia e costruisco id2item
     data = load_artpedia(json_path)
     id2item = {it["id"]: it for it in data}
     st.session_state.id2item = id2item
 
     ensure_embeddings_local()
     
-    # Precarico embedding precomputati all'avvio (UNA SOLA VOLTA)
     if "pack" not in st.session_state:
         try:
             with st.spinner("Carico embedding precomputati…"):
                 pack = load_embeddings_from_file(EMB_NPZ_PATH)
 
-                # Riallinea l'ordine se necessario (in base all'ordine degli item nel JSON attuale)
                 data_ids = np.array([it["id"] for it in data], dtype=np.int64)
                 if not np.array_equal(pack.ids, data_ids):
                     idx_map = {int(g): i for i, g in enumerate(pack.ids.tolist())}
@@ -1286,10 +1125,9 @@ def main():
             st.error(f"Errore nel caricamento embeddings: {e}")
             st.stop()
 
-    w = (ALPHA, BETA, GAMMA, DELTA)  # pesi fissati
+    w = (ALPHA, BETA, GAMMA, DELTA)  
     _init_session()
 
-    # Router schermate
     phase = st.session_state.phase
     if phase == "consent":
         screen_consent()
