@@ -897,7 +897,7 @@ def screen_seed_select(data: List[Dict]):
             3,
             gap="small",
             border=True,
-            vertical_alignment="bottom"
+            vertical_alignment="bottom",
             width="stretch",
         )
         for c in range(cols_per_row):
