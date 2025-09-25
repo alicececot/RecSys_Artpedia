@@ -898,6 +898,7 @@ def screen_seed_select(data: List[Dict]):
             gap="small",
             border=True,
             width=1500,
+            vertical_alignment="bottom"
         )
         for c in range(cols_per_row):
             if idx >= len(ids):
