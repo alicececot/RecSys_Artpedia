@@ -896,9 +896,8 @@ def screen_seed_select(data: List[Dict]):
         cols = st.columns(
             3,
             gap="small",
-            vertical_alignment="bottom",
             border=True,
-            width="stretch",
+            width="200",
         )
         for c in range(cols_per_row):
             if idx >= len(ids):
@@ -918,7 +917,7 @@ def screen_seed_select(data: List[Dict]):
                     if disabled_this and not is_sel:
                         show_img = ImageEnhance.Color(show_img).enhance(0.2)
                         show_img = ImageEnhance.Brightness(show_img).enhance(0.75)
-                    st.image(show_img, width='stretch')
+                    st.image(show_img, width='200')
                 else:
                     st.markdown('<div class="img-missing">Immagine locale non trovata</div>', unsafe_allow_html=True)
 
@@ -990,9 +989,8 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
         cols = st.columns(
             3,
             gap="small",
-            vertical_alignment="bottom",
             border=True,
-            width="stretch",
+            width="200",
         )
         for c in range(cols_per_row):
             if idx >= len(rec_ids):
@@ -1005,7 +1003,7 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
                 st.markdown('<div class="art-card">', unsafe_allow_html=True)
 
                 if img is not None:
-                    st.image(img, width='stretch')
+                    st.image(img, width='200')
                 else:
                     st.markdown('<div class="img-missing">Immagine locale non trovata</div>', unsafe_allow_html=True)
 
