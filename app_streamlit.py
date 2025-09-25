@@ -897,7 +897,7 @@ def screen_seed_select(data: List[Dict]):
             3,
             gap="small",
             border=True,
-            width="stretch",
+            width=1000,
         )
         for c in range(cols_per_row):
             if idx >= len(ids):
@@ -917,7 +917,7 @@ def screen_seed_select(data: List[Dict]):
                     if disabled_this and not is_sel:
                         show_img = ImageEnhance.Color(show_img).enhance(0.2)
                         show_img = ImageEnhance.Brightness(show_img).enhance(0.75)
-                    st.image(show_img, width=1000)
+                    st.image(show_img, width="stretch")
                 else:
                     st.markdown('<div class="img-missing">Immagine locale non trovata</div>', unsafe_allow_html=True)
 
