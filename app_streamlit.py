@@ -982,19 +982,46 @@ def find_local_image_path(item) -> Optional[Path]:
     return None
 
 def _sample_seed_pool(all_ids: List[int], k: int = TOPK_SEED) -> List[int]:
-    valid = set(map(int, st.session_state.pack.ids.tolist()))   # <- solo ID con embedding
+    valid = set(map(int, st.session_state.pack.ids.tolist()))   # solo ID con embedding
     ids = [g for g in all_ids if g in valid]
     random.shuffle(ids)
-    out = []
-    scanned = 0
+
+    out, scanned = [], 0
     budget = 10 * k  # non scandire tutto il dataset
+
     for gid in ids:
-        if find_local_image_path(st.session_state.id2item[gid]):
+        it = st.session_state.id2item[gid]
+
+        # 1) se c'è già in locale, ok
+        if find_local_image_path(it):
             out.append(gid)
+        else:
+            # 2) tenta un download "on demand" da HF
+            split = str(it.get("split", "train"))
+            url = it.get("img_url") or ""
+            tried = False
+
+            # prova prima il nome canonico hash8_basename
+            if url and not tried:
+                fname = hashed_filename(url)
+                p = _download_remote_image(split, fname)
+                tried = True
+                if p and p.exists():
+                    out.append(gid)
+
+            # se non basta, prova anche il basename "puro"
+            if url and (len(out) < k) and not find_local_image_path(it):
+                base = basename_from_url(url)
+                p2 = _download_remote_image(split, base)
+                if p2 and p2.exists():
+                    out.append(gid)
+
         scanned += 1
         if len(out) >= k or scanned >= budget:
             break
+
     return out
+
 
 
 
