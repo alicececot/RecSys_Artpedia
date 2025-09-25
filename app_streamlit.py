@@ -897,7 +897,7 @@ def screen_seed_select(data: List[Dict]):
             3,
             gap="small",
             border=True,
-            width=1000,
+            width="stretch",
         )
         for c in range(cols_per_row):
             if idx >= len(ids):
@@ -911,9 +911,15 @@ def screen_seed_select(data: List[Dict]):
             with cols[c]:
                 st.markdown(f'<div class="art-card {"is-selected" if is_sel else ""}">', unsafe_allow_html=True)
 
+                
                 img = load_image(item)
+                cropped_img = ImageOps.fit(img, (450, 450), method=Image.Resampling.LANCZOS,centering=(0.5, 0.5))
+                
+                if st.button("Ingrandisci 🔍"):
+                    st.image(img)  
+                    
                 if img is not None:
-                    show_img = img
+                    show_img = cropped_img
                     if disabled_this and not is_sel:
                         show_img = ImageEnhance.Color(show_img).enhance(0.2)
                         show_img = ImageEnhance.Brightness(show_img).enhance(0.75)
