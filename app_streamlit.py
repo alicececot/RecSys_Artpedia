@@ -1016,7 +1016,6 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
                 img = load_image(item)
                 cropped_img = ImageOps.fit(img, (450, 450), method=Image.Resampling.LANCZOS,centering=(0.5, 0.5))
 
-
                 if st.button("Ingrandisci 🔍", key=f"zoom_{gid}_{r}_{c}",width='stretch'):
                     @st.dialog(item.get('title','Senza titolo'))
                     def show_original():
@@ -1025,6 +1024,7 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
 
                 if img is not None:
                     show_img = cropped_img
+                    st.image(show_img, width="stretch")
                 else:
                     st.markdown('<div class="img-missing">Immagine locale non trovata</div>', unsafe_allow_html=True)
 
