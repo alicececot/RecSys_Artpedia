@@ -165,29 +165,19 @@ def ensure_embeddings_local():
 def get_gsheet_worksheet():
     """
     Apre il foglio Google usando la service account nei Secrets.
-    Ritorna il primo worksheet (sheet1).
     """
-    sa_info = st.secrets["GOOGLE_SERVICE_ACCOUNT_JSON"]
+    # Ora sarà automaticamente un dizionario grazie al formato TOML corretto
+    sa_info = dict(st.secrets["GOOGLE_SERVICE_ACCOUNT_JSON"])
     
-    # DEBUG: Verifica il tipo
-    print(f"Tipo di sa_info: {type(sa_info)}")
+    # Fissa i newlines nella private key
+    if "private_key" in sa_info and isinstance(sa_info["private_key"], str):
+        sa_info["private_key"] = sa_info["private_key"].replace("\\n", "\n")
     
-    # Se è già un dizionario, usalo direttamente
-    if isinstance(sa_info, dict):
-        creds = Credentials.from_service_account_info(
-            sa_info,
-            scopes=["https://www.googleapis.com/auth/spreadsheets",
-                    "https://www.googleapis.com/auth/drive"]
-        )
-    # Se è una stringa, parsala come JSON
-    elif isinstance(sa_info, str):
-        creds = Credentials.from_service_account_info(
-            json.loads(sa_info),
-            scopes=["https://www.googleapis.com/auth/spreadsheets",
-                    "https://www.googleapis.com/auth/drive"]
-        )
-    else:
-        raise ValueError(f"Tipo non supportato per service account: {type(sa_info)}")
+    creds = Credentials.from_service_account_info(
+        sa_info,
+        scopes=["https://www.googleapis.com/auth/spreadsheets",
+                "https://www.googleapis.com/auth/drive"]
+    )
     
     gc = gspread.authorize(creds)
     sh = gc.open_by_key(st.secrets["SHEETS_SPREADSHEET_ID"])
@@ -525,7 +515,7 @@ def get_explanation_for_item(rec_gid: int, seed_gids: list, pack, w) -> str:
 def build_llm_system() -> str:
     return ("Sei un esperto di storia dell'arte che genera spiegazioni chiare e concise "
             "per raccomandazioni d'arte. Usa SOLO le informazioni fornite nel contesto. "
-            "Non inventare dettagli non presenti. La spiegazione deve essere lunga 50-100 parole. "
+            "Non inventare dettagli non presenti. La spiegazione deve essere breve: massimo 2 frasi, 30–40 parole totali. "
             "Stile: professionale ma accessibile. Collega 1-2 opere apprezzate dall'utente "
             "con 1-2 caratteristiche dell'opera raccomandata.")
 
@@ -556,7 +546,7 @@ def build_llm_user_context(item: dict, prefs: dict) -> str:
     )
 
 def generate_llm_explanation_gemini_flash(item: dict, prefs: dict,
-                                          max_tokens: int = 220, temperature: float = 0.2):
+                                          max_tokens: int = 80, temperature: float = 0.2):
     """
     Genera una spiegazione LLM per una raccomandazione d'arte usando Gemini Flash via OpenRouter.
     
