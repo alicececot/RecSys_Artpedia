@@ -916,7 +916,7 @@ def screen_seed_select(data: List[Dict]):
                 cropped_img = ImageOps.fit(img, (450, 450), method=Image.Resampling.LANCZOS,centering=(0.5, 0.5))
                 
                 if st.button("Ingrandisci 🔍", key=f"zoom_{gid}_{r}_{c}",width='stretch'):
-                    @st.dialog("Immagine originale")
+                    @st.dialog(item.get('title','Senza titolo'))
                     def show_original():
                         st.image(img)
                     show_original()
@@ -1007,20 +1007,26 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
             gid = rec_ids[idx]; idx += 1
             item = st.session_state.id2item.get(gid, {})
             img = load_image(item)
+            cropped_img = ImageOps.fit(img, (450, 450), method=Image.Resampling.LANCZOS,centering=(0.5, 0.5))
+
 
             with cols[c]:
                 st.markdown('<div class="art-card">', unsafe_allow_html=True)
 
+                if st.button("Ingrandisci 🔍", key=f"zoom_{gid}_{r}_{c}",width='stretch'):
+                    @st.dialog(item.get('title','Senza titolo'))
+                    def show_original():
+                        st.image(img)
+                    show_original()
+
                 if img is not None:
-                    st.image(img, width=1000)
+                    show_img = cropped_img
                 else:
                     st.markdown('<div class="img-missing">Immagine locale non trovata</div>', unsafe_allow_html=True)
 
-                title = item.get('title', 'Senza titolo')
-                year = item.get('year', '?')
                 st.markdown(
-                    f"<div class='titleline'><span class='title'>{title}</span> "
-                    f"<span class='meta'>({year})</span></div>",
+                    f"<div class='titleline'><span class='title'>{item.get('title','Senza titolo')}</span> "
+                    f"<span class='meta'>({item.get('year','?')})</span></div>",
                     unsafe_allow_html=True
                 )
 
