@@ -79,3 +79,14 @@
   color: #174d2d;                          
 }
 .exp-box strong{ color:#146e3a; }
+
+/* Immagini quadrate con ritaglio cover */
+.art-card [data-testid="stImage"] img {
+  width: 100% !important;
+  aspect-ratio: 1 / 1 !important;  /* tutte quadrate */
+  height: auto !important;
+  object-fit: cover !important;
+  object-position: center center !important;
+  border-radius: 10px;
+  display: block;
+}
