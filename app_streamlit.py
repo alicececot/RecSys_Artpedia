@@ -289,7 +289,7 @@ def load_image_local(item: Dict) -> Optional[Image.Image]:
 
 def _download_remote_image(split: str, filename: str) -> Optional[Path]:
     """
-    Scarica un singolo file da Hugging Face Datasets in ./images/<split>/<filename>
+    Scarica un singolo file da Hugging Face Datasets in ./<split>/<filename>
     se IMAGES_BASE_URL è definita. Ritorna il Path locale se scaricato/esistente.
     """
     base = os.getenv("IMAGES_BASE_URL") or st.secrets.get("IMAGES_BASE_URL")
