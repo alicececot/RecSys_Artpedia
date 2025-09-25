@@ -168,17 +168,30 @@ def get_gsheet_worksheet():
     Ritorna il primo worksheet (sheet1).
     """
     sa_info = st.secrets["GOOGLE_SERVICE_ACCOUNT_JSON"]
-    # se nei Secrets l'hai messo come stringa multi-linea:
-    if isinstance(sa_info, str):
-        sa_info = json.loads(sa_info)
-    creds = Credentials.from_service_account_info(
-        sa_info,
-        scopes=["https://www.googleapis.com/auth/spreadsheets",
-                "https://www.googleapis.com/auth/drive"]
-    )
+    
+    # DEBUG: Verifica il tipo
+    print(f"Tipo di sa_info: {type(sa_info)}")
+    
+    # Se è già un dizionario, usalo direttamente
+    if isinstance(sa_info, dict):
+        creds = Credentials.from_service_account_info(
+            sa_info,
+            scopes=["https://www.googleapis.com/auth/spreadsheets",
+                    "https://www.googleapis.com/auth/drive"]
+        )
+    # Se è una stringa, parsala come JSON
+    elif isinstance(sa_info, str):
+        creds = Credentials.from_service_account_info(
+            json.loads(sa_info),
+            scopes=["https://www.googleapis.com/auth/spreadsheets",
+                    "https://www.googleapis.com/auth/drive"]
+        )
+    else:
+        raise ValueError(f"Tipo non supportato per service account: {type(sa_info)}")
+    
     gc = gspread.authorize(creds)
     sh = gc.open_by_key(st.secrets["SHEETS_SPREADSHEET_ID"])
-    ws = sh.sheet1  # usa il primo tab del foglio
+    ws = sh.sheet1
     return ws
 
 
@@ -1242,15 +1255,6 @@ def main():
     st.title(APP_TITLE)
     load_css("./style.css")
 
-    # Se vuoi tenere l'indicazione device, proteggila così:
-    try:
-        device_label = (
-            "MPS" if hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
-            else ("CUDA" if torch.cuda.is_available() else "CPU")
-        )
-    except Exception:
-        device_label = "CPU"
-    st.sidebar.caption(f"Device: {device_label}")
 
     # JSON path (puoi mettere qui il path assoluto se preferisci)
     json_path = st.sidebar.text_input("Percorso JSON Artpedia", value=DEFAULT_JSON_PATH)
