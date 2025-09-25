@@ -1,7 +1,6 @@
 import os
 import json
 import time
-import csv
 import random
 import secrets
 from dataclasses import dataclass
@@ -33,7 +32,6 @@ APP_TITLE = "Recommender d'Arte"
 DEFAULT_JSON_PATH = "./data/artpedia.json"   
 EMB_NPZ_PATH = "./data/embeddings/artpedia_blip_base_all.npz"  
 IMG_CACHE_DIR = "./.cache/images"
-LOG_DIR = "./logs"
 TOPK_SEED = 12  
 TOPK_REC  = 12  
 
@@ -120,12 +118,6 @@ def load_artpedia(json_path: str) -> List[Dict]:
 
     return items
 
-
-
-def ensure_dirs():
-    os.makedirs(os.path.dirname(EMB_NPZ_PATH), exist_ok=True)
-    os.makedirs(IMG_CACHE_DIR, exist_ok=True)
-    os.makedirs(LOG_DIR, exist_ok=True)
 
 def ensure_embeddings_local():
     if os.path.exists(EMB_NPZ_PATH):
@@ -569,20 +561,6 @@ HEADERS = {
     ]
 }
 
-
-def log_row(name: str, row: Dict):
-    ensure_dirs()
-    path = os.path.join(LOG_DIR, f"{name}.csv")
-    is_new = not os.path.exists(path)
-    
-    with open(path, "a", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=HEADERS[name])
-        if is_new:
-            writer.writeheader()
-        
-        complete_row = {col: row.get(col, "") for col in HEADERS[name]}
-        writer.writerow(complete_row)
-
 def append_to_google_sheet(row: Dict):
     ws = get_gsheet_worksheet()
 
@@ -667,8 +645,6 @@ def log_complete_study_session(rec_ids, scores, ratings, rec_duration_ms):
         "recommended_artwork_titles": get_artwork_titles(rec_ids)
     }
     append_to_google_sheet(row)
-    log_row("art_recommendation_study", row)
-
 
 def _assign_group(user_id: str) -> str:
     h = int(hashlib.sha256(user_id.encode("utf-8")).hexdigest(), 16)
