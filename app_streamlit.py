@@ -1038,7 +1038,6 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
     bundle = st.session_state.get("rec_bundle") or {}
     rec_ids = bundle.get("ids")
     scores = bundle.get("scores")
-    explanations = bundle.get("explanations") or {}  
 
     if not rec_ids:
         pack = st.session_state.pack
@@ -1055,7 +1054,6 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
 
         rec_ids = []
         scores = []
-        
         for gid, score, _ in results:
             rec_ids.append(gid)
             scores.append(round(score, 6))
@@ -1063,9 +1061,11 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
         rec_ids = rec_ids[:TOPK_REC]
         scores  = scores[:TOPK_REC]
 
-        st.session_state.rec_bundle = {"ids": rec_ids, "scores": scores}
-        bundle = st.session_state.rec_bundle
-    
+        st.session_state.rec_bundle = {
+            "ids": rec_ids,
+            "scores": scores,
+        }
+
     left, right = st.columns([7, 5], gap="large")
 
     with left:
@@ -1084,12 +1084,12 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
                 with cols[c]:
                     st.markdown('<div class="art-card">', unsafe_allow_html=True)
 
-                    with st.popover("Ingrandisci 🔍", width='stretch'):
+                    with st.popover("Ingrandisci 🔍", use_container_width=True):
                         if img is not None:
-                            st.image(img, width='stretch')
+                            st.image(img, use_container_width=True)
 
                     if img is not None:
-                        st.image(cropped_img, width='stretch')
+                        st.image(cropped_img, use_container_width=True)
                     else:
                         st.markdown('<div class="img-missing">Immagine locale non trovata</div>', unsafe_allow_html=True)
 
@@ -1098,10 +1098,6 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
                         f"<span class='meta'>({item.get('year','?')})</span></div>",
                         unsafe_allow_html=True
                     )
-
-
-                    with st.popover("Perché?", width='stretch', key=f"why_{gid}"):
-                        st.markdown(explanations, unsafe_allow_html=True)
 
                     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1141,7 +1137,7 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
             st.markdown("**La spiegazione mi ha aiutato a capire perché l’opera era raccomandata.**")
             q8 = st.radio("trust", options=likert_opts, index=2, key="q8", label_visibility="collapsed")
 
-            submitted = st.form_submit_button("Invia", width='stretch')
+            submitted = st.form_submit_button("Invia", use_container_width=True)
 
         if submitted:
             ratings = {
