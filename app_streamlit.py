@@ -880,7 +880,7 @@ def screen_seed_select(data: List[Dict]):
 
                     img = load_image(item)
 
-                    with st.popover("Ingrandisci 🔍"):
+                    with st.popover("Ingrandisci 🔍", width="stretch"):
                         if img is not None:
                             st.image(img, use_container_width=True)
                             
@@ -909,7 +909,7 @@ def screen_seed_select(data: List[Dict]):
         submitted = st.form_submit_button(
             "Genera raccomandazioni",
             type="primary",
-            use_container_width=True
+            width="stretch"
         )
 
 
