@@ -906,10 +906,6 @@ def screen_seed_select(data: List[Dict]):
 
                     st.markdown("</div>", unsafe_allow_html=True)
 
-        current_selected = [g for g in ids if st.session_state.get(f"sel_{g}", False)]
-        n_sel = len(current_selected)
-        st.markdown(f"Hai selezionato {n_sel} immagine{'' if n_sel==1 else 'i'}")
-
         submitted = st.form_submit_button(
             "Genera raccomandazioni",
             type="primary",
