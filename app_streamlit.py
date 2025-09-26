@@ -853,9 +853,6 @@ def _sample_seed_pool(all_ids: List[int], k: int = TOPK_SEED) -> List[int]:
 
     return out
 
-
-
-
 def screen_seed_select(data: List[Dict]):
     st.subheader("Seleziona 4 dipinti che ti piacciono")
 
@@ -866,19 +863,26 @@ def screen_seed_select(data: List[Dict]):
     ids = st.session_state.seed_pool_ids[:12]  
     sel = set(st.session_state.seed_selected_ids)
 
+    for gid in ids:
+        button_key = f"tap_{gid}"
+        if button_key not in st.session_state:
+            st.session_state[button_key] = False
+
+    button_clicked = False
+    clicked_gid = None
+    
     rows, cols_per_row = 4, 3
     idx = 0
+    
     for r in range(rows):
-        cols = st.columns(
-            3,
-            gap="small",
-            border=True,
-            width="stretch",
-        )
+        cols = st.columns(3, gap="small", border=True, width="stretch")
+        
         for c in range(cols_per_row):
             if idx >= len(ids):
                 break
-            gid = ids[idx]; idx += 1
+            
+            gid = ids[idx]
+            idx += 1
             item = st.session_state.id2item[gid]
             is_sel = gid in sel
             reached_limit = len(sel) >= 4
@@ -887,22 +891,15 @@ def screen_seed_select(data: List[Dict]):
             with cols[c]:
                 st.markdown(f'<div class="art-card {"is-selected" if is_sel else ""}">', unsafe_allow_html=True)
 
-                
                 img = load_image(item)
-                cropped_img = ImageOps.fit(img, (450, 450), method=Image.Resampling.LANCZOS,centering=(0.5, 0.5))
-                
-                if st.button("Ingrandisci 🔍", key=f"zoom_{gid}_{r}_{c}",width='stretch'):
-                    @st.dialog(item.get('title','Senza titolo'))
-                    def show_original():
-                        st.image(img)
-                    show_original()
-                    
                 if img is not None:
-                    show_img = cropped_img
+                    cropped_img = ImageOps.fit(img, (450, 450), method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
+                    
                     if disabled_this and not is_sel:
-                        show_img = ImageEnhance.Color(show_img).enhance(0.2)
-                        show_img = ImageEnhance.Brightness(show_img).enhance(0.75)
-                    st.image(show_img, width="stretch")
+                        cropped_img = ImageEnhance.Color(cropped_img).enhance(0.2)
+                        cropped_img = ImageEnhance.Brightness(cropped_img).enhance(0.75)
+                    
+                    st.image(cropped_img, width="stretch")
                 else:
                     st.markdown('<div class="img-missing">Immagine locale non trovata</div>', unsafe_allow_html=True)
 
@@ -912,28 +909,28 @@ def screen_seed_select(data: List[Dict]):
                     unsafe_allow_html=True
                 )
 
-                if st.button(("Deseleziona" if is_sel else "Seleziona"),
-                             key=f"tap_{gid}_{r}_{c}",
-                             disabled=(disabled_this and not is_sel),
-                             width='stretch'):
-                    
-                    if is_sel: sel.remove(gid)
-                    else:      sel.add(gid)
-                    st.session_state.seed_selected_ids = list(sel)
-                    st.rerun()
+                button_text = "Deseleziona" if is_sel else "Seleziona"
+                if st.button(button_text, key=f"btn_{gid}", disabled=disabled_this):
+                    # Segnala che questo bottone è stato cliccato
+                    button_clicked = True
+                    clicked_gid = gid
 
                 st.markdown("</div>", unsafe_allow_html=True)
 
     st.write(f"Selezionati: **{len(sel)}/4**")
 
-    if st.button("Genera raccomandazioni",
-                 disabled=(len(sel) != 4),
-                 width='stretch',
-                 type="primary"):
+    if button_clicked and clicked_gid is not None:
+        if clicked_gid in sel:
+            sel.remove(clicked_gid)
+        else:
+            sel.add(clicked_gid)
+        st.session_state.seed_selected_ids = list(sel)
+
+    if st.button("Genera raccomandazioni", disabled=(len(sel) != 4), type="primary", key="generate_recs"):
         st.session_state.slate_id = secrets.token_hex(6)
         st.session_state.phase = "rec"
         st.session_state.rec_start_ts = time.time()
-        st.rerun()
+        st.rerun() 
 
 
 
