@@ -347,19 +347,26 @@ def _format_list_it(names):
         return f"{names[0]} e {names[1]}"
     return f"{', '.join(names[:-1])} e {names[-1]}"
 
-def content_based_explanation_gid(rec_gid: int, seed_gids: list, pack, w, k_refs: int = 2) -> str:
+def content_based_explanation_gid(rec_gid: int,
+                                  seed_gids: list,
+                                  pack,
+                                  w,
+                                  k_refs: int = 2) -> str:
     gid_list = pack.ids.tolist()
     idx_map = {int(g): i for i, g in enumerate(gid_list)}
+
     item = st.session_state.id2item.get(rec_gid, {})
     rec_title = item.get("title", "questa opera")
 
     if rec_gid not in idx_map or not seed_gids:
         return f"Ti abbiamo raccomandato *{rec_title}* perché riteniamo che sia in linea con i tuoi gusti."
 
+    # 1) vettori fusi
     fused = fuse_modalities(pack.img, pack.vis, pack.ctx, pack.meta, w)
     rv = fused[idx_map[rec_gid]]
     rvn = np.linalg.norm(rv) + 1e-9
 
+    # 2) similarità con TUTTI i seed
     sims = []
     for sg in seed_gids:
         i = idx_map.get(int(sg))
@@ -367,28 +374,30 @@ def content_based_explanation_gid(rec_gid: int, seed_gids: list, pack, w, k_refs
             continue
         sv = fused[i]
         sim = float(np.dot(rv, sv) / (rvn * (np.linalg.norm(sv) + 1e-9)))
-        sims.append((sg, sim))
+        sims.append((int(sg), sim))
+
     if not sims:
         return f"Ti abbiamo raccomandato *{rec_title}* perché riteniamo che sia in linea con i tuoi gusti."
 
+    # 3) prendi i migliori N seed (es. 4) — non usare epsilon, che tende a dare 1 solo seed
     sims.sort(key=lambda x: x[1], reverse=True)
-    best = sims[0][1]
-    epsilon = 0.01  
-    pool = [g for g, s in sims if s >= best - epsilon] or [sims[0][0]]
+    TOP_M = min(4, len(sims))           # bacino di candidati
+    candidate_seeds = [g for g, _ in sims[:TOP_M]]
 
-    counts = st.session_state.setdefault("ref_use_counts", {int(g): 0 for g in seed_gids})
+    # 4) rotazione: usa contatori, scegli i meno usati tra i candidati
+    counts = st.session_state.setdefault("ref_use_counts", {})
     for g in seed_gids:
         counts.setdefault(int(g), 0)
 
-    rng = random.Random()  # deterministico? passa uno seed se vuoi
-    rng.shuffle(pool)
-    pool.sort(key=lambda g: counts.get(int(g), 0))
+    # ordina prima per conteggio crescente, poi per rank di similarità (stabile)
+    candidate_seeds.sort(key=lambda g: (counts.get(int(g), 0), candidate_seeds.index(g)))
 
-    chosen = pool[:max(1, k_refs)]
+    chosen = candidate_seeds[:max(1, k_refs)]   # tipicamente 2
     for g in chosen:
         counts[int(g)] = counts.get(int(g), 0) + 1
-    st.session_state["ref_use_counts"] = counts
+    st.session_state["ref_use_counts"] = counts  # salva
 
+    # 5) titoli
     titles = []
     for g in chosen:
         t = (st.session_state.id2item.get(int(g), {}).get("title") or "").strip()
@@ -398,12 +407,9 @@ def content_based_explanation_gid(rec_gid: int, seed_gids: list, pack, w, k_refs
     if not titles:
         return f"Ti abbiamo raccomandato *{rec_title}* perché riteniamo che sia in linea con i tuoi gusti."
 
-    if len(titles) == 1:
-        refs_txt = titles[0]
-    else:
-        refs_txt = f"{titles[0]} e {titles[1]}"
-
+    refs_txt = titles[0] if len(titles) == 1 else f"{titles[0]} e {titles[1]}"
     return f"Ti abbiamo raccomandato *{rec_title}* perché hai apprezzato opere come *{refs_txt}*."
+
 
 def get_explanation_for_item(rec_gid: int, seed_gids: list, pack, w) -> str:
     item = st.session_state.id2item.get(rec_gid, {})
@@ -1093,10 +1099,9 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
                         unsafe_allow_html=True
                     )
 
-                    exp_text = explanations.get(gid) or "Spiegazione non disponibile (mostra prima la modalità sequenziale per generarle)."
 
                     with st.popover("Perché?", use_container_width=True, key=f"why_{gid}"):
-                        st.markdown(exp_text, unsafe_allow_html=True)
+                        st.markdown(explanations, unsafe_allow_html=True)
 
                     st.markdown('</div>', unsafe_allow_html=True)
 
