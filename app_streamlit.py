@@ -980,7 +980,7 @@ def screen_seed_select(data: List[Dict]):
         st.session_state.slate_id = secrets.token_hex(6)
         prepare_recommendations_and_start_seq((ALPHA, BETA, GAMMA, DELTA))  
 
-def screen_recommend_sequential(delay_ms: int = 6000):
+def screen_recommend_sequential(delay_ms: int = 4000):
     st.subheader("Raccomandazioni per te")
 
     bundle = st.session_state.get("rec_bundle")
@@ -1027,7 +1027,7 @@ def screen_recommend_sequential(delay_ms: int = 6000):
             time.sleep(min((delay_ms - elapsed_ms) / 1000.0, 0.5))
             st.rerun()
         else:
-            if st.button("Avanti →", width='stretch', key=f"next_enabled_{idx}"):
+            if st.button("Avanti →", width="stretch", key=f"next_enabled_{idx}"):
                 st.session_state.rec_idx = idx + 1
                 st.session_state.rec_ts = time.time()
                 st.rerun()
