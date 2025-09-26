@@ -1024,7 +1024,6 @@ def screen_recommend_sequential(delay_ms: int = 4000):
 def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
     st.subheader("Raccomandazioni per te")
 
-    # 🎯 USA SOLO I DATI PRECALCOLATI - NESSUN RICALCOLO
     bundle = st.session_state.get("rec_bundle")
     if not bundle or not bundle.get("ids"):
         st.error("Nessuna raccomandazione disponibile. Torna alla selezione.")
@@ -1035,9 +1034,8 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
 
     rec_ids = bundle["ids"]
     scores = bundle["scores"]
-    explanations = bundle["explanations"]  # 🎯 SPIEGAZIONI GIÀ PRONTE
+    explanations = bundle["explanations"]  
 
-    # 🎯 VISUALIZZAZIONE GRIGLIA usando i dati precalcolati
     left, right = st.columns([7, 5], gap="large")
 
     with left:
@@ -1051,8 +1049,10 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
                 gid = rec_ids[idx]; idx += 1
                 item = st.session_state.id2item.get(gid, {})
                 img = load_image(item)
-                cropped_img = ImageOps.fit(img, (450, 450), method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
-
+                if img is not None:
+                    cropped_img = ImageOps.fit(img, (450, 450), method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
+                else:
+                    cropped_img = None
                 with cols[c]:
                     st.markdown('<div class="art-card">', unsafe_allow_html=True)
 
@@ -1071,16 +1071,12 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
                         unsafe_allow_html=True
                     )
 
-                    # 🎯 USA SPIEGAZIONE PRECALCOLATA
-                    st.markdown(
-                        f"<div class='exp-box'><strong>Perché:</strong> {explanations.get(gid, '')}</div>",
-                        unsafe_allow_html=True
-                    )
+                    with st.popover("Perche?", use_container_width=True):
+                        explanations.get(gid, '')
 
                     st.markdown('</div>', unsafe_allow_html=True)
 
     with right:
-        # QUESTIONARIO LATERALE
         likert_opts = ["Per niente d'accordo", "In disaccordo", "Neutrale", "D'accordo", "Totamente d'accordo"]
         with st.form("likert_form_side", clear_on_submit=False):
             st.markdown(
@@ -1128,7 +1124,7 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
                 "understanding": likert_opts.index(q7) + 1,
                 "usefulness": likert_opts.index(q8) + 1
             }
-            dur_ms = int((time.time() - st.session_state.rec_start_ts) * 1000)  # 🎯 USA TIMESTAMP INIZIALE
+            dur_ms = int((time.time() - st.session_state.rec_start_ts) * 1000)  
             log_complete_study_session(rec_ids, scores, ratings, dur_ms)
             st.session_state.phase = "done"
             st.rerun()
