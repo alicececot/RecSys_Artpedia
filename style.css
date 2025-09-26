@@ -81,3 +81,15 @@
 }
 .exp-box strong{ color:#146e3a; }
 
+/* Contenitore del titolo del questionario (dentro il form) */
+.form-title-wrap {
+  padding: 8px 0 16px 0;         /* top right/left bottom */
+}
+
+/* Titolo grande del questionario */
+.form-title {
+  margin: 0;
+  font-size: 1.8rem;             /* regola qui la grandezza */
+  line-height: 1.2;              /* regola qui l’interlinea */
+  font-weight: 700;              /* opzionale: grassetto deciso */
+}
