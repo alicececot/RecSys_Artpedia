@@ -962,7 +962,7 @@ def screen_seed_select(data: List[Dict]):
         st.session_state.slate_id = secrets.token_hex(6)
         prepare_recommendations_and_start_seq((ALPHA, BETA, GAMMA, DELTA))  
 
-def screen_recommend_sequential(delay_ms: int = 2000):
+def screen_recommend_sequential(delay_ms: int = 8000):
     st.subheader("Raccomandazioni")
 
     bundle = st.session_state.get("rec_bundle")
@@ -990,7 +990,7 @@ def screen_recommend_sequential(delay_ms: int = 2000):
     left, right = st.columns([7, 5], gap="large")
     with left:
         if img is not None:
-            st.image(img, use_container_width=True)
+            st.image(img, width="stretch")
         else:
             st.markdown('<div class="img-missing">Immagine non trovata</div>', unsafe_allow_html=True)
 
@@ -1005,7 +1005,7 @@ def screen_recommend_sequential(delay_ms: int = 2000):
         elapsed_ms = int((time.time() - st.session_state.get("rec_ts", time.time())) * 1000)
 
         if elapsed_ms < delay_ms:
-            st.button("Avanti →", use_container_width=True, disabled=True, key=f"next_disabled_{idx}")
+            st.button("Avanti →", width="stretch", disabled=True, key=f"next_disabled_{idx}")
             time.sleep(min((delay_ms - elapsed_ms) / 1000.0, 0.5))
             st.rerun()
         else:
@@ -1013,13 +1013,6 @@ def screen_recommend_sequential(delay_ms: int = 2000):
                 st.session_state.rec_idx = idx + 1
                 st.session_state.rec_ts = time.time()
                 st.rerun()
-
-    st.divider()
-    if st.button("Interrompi e vai alla griglia"):
-        st.session_state.phase = "rec"
-        st.rerun()
-
-
 
 def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
     st.subheader("Raccomandazioni per te")
@@ -1211,7 +1204,7 @@ def main():
     elif phase == "seed":
         screen_seed_select(data)
     elif phase == "rec_seq":
-        screen_recommend_sequential(delay_ms=1500)
+        screen_recommend_sequential()
     elif phase == "rec":
         screen_recommend(data, w)
     else:
