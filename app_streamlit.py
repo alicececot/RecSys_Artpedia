@@ -347,15 +347,9 @@ def _format_list_it(names):
         return f"{names[0]} e {names[1]}"
     return f"{', '.join(names[:-1])} e {names[-1]}"
 
-
-def content_based_explanation_gid(rec_gid: int,
-                                  seed_gids: list,
-                                  pack,
-                                  w,
-                                  k_refs: int = 2) -> str:
+def content_based_explanation_gid(rec_gid: int, seed_gids: list, pack, w, k_refs: int = 2) -> str:
     gid_list = pack.ids.tolist()
     idx_map = {int(g): i for i, g in enumerate(gid_list)}
-
     item = st.session_state.id2item.get(rec_gid, {})
     rec_title = item.get("title", "questa opera")
 
@@ -363,7 +357,6 @@ def content_based_explanation_gid(rec_gid: int,
         return f"Ti abbiamo raccomandato *{rec_title}* perché riteniamo che sia in linea con i tuoi gusti."
 
     fused = fuse_modalities(pack.img, pack.vis, pack.ctx, pack.meta, w)
-
     rv = fused[idx_map[rec_gid]]
     rvn = np.linalg.norm(rv) + 1e-9
 
@@ -375,25 +368,42 @@ def content_based_explanation_gid(rec_gid: int,
         sv = fused[i]
         sim = float(np.dot(rv, sv) / (rvn * (np.linalg.norm(sv) + 1e-9)))
         sims.append((sg, sim))
-
     if not sims:
         return f"Ti abbiamo raccomandato *{rec_title}* perché riteniamo che sia in linea con i tuoi gusti."
 
     sims.sort(key=lambda x: x[1], reverse=True)
-    top_refs = [g for g, _ in sims[:max(1, k_refs)]]
+    best = sims[0][1]
+    epsilon = 0.01  
+    pool = [g for g, s in sims if s >= best - epsilon] or [sims[0][0]]
 
-    ref_titles = []
-    for g in top_refs:
-        it = st.session_state.id2item.get(int(g), {})
-        t = (it.get("title") or "").strip()
+    counts = st.session_state.setdefault("ref_use_counts", {int(g): 0 for g in seed_gids})
+    for g in seed_gids:
+        counts.setdefault(int(g), 0)
+
+    rng = random.Random()  # deterministico? passa uno seed se vuoi
+    rng.shuffle(pool)
+    pool.sort(key=lambda g: counts.get(int(g), 0))
+
+    chosen = pool[:max(1, k_refs)]
+    for g in chosen:
+        counts[int(g)] = counts.get(int(g), 0) + 1
+    st.session_state["ref_use_counts"] = counts
+
+    titles = []
+    for g in chosen:
+        t = (st.session_state.id2item.get(int(g), {}).get("title") or "").strip()
         if t:
-            ref_titles.append(t)
+            titles.append(t)
 
-    ref_list = _format_list_it(ref_titles)
-    if not ref_list:
+    if not titles:
         return f"Ti abbiamo raccomandato *{rec_title}* perché riteniamo che sia in linea con i tuoi gusti."
 
-    return f"Ti abbiamo raccomandato *{rec_title}* perché hai apprezzato opere come *{ref_list}*."
+    if len(titles) == 1:
+        refs_txt = titles[0]
+    else:
+        refs_txt = f"{titles[0]} e {titles[1]}"
+
+    return f"Ti abbiamo raccomandato *{rec_title}* perché hai apprezzato opere come *{refs_txt}*."
 
 def get_explanation_for_item(rec_gid: int, seed_gids: list, pack, w) -> str:
     item = st.session_state.id2item.get(rec_gid, {})
@@ -868,6 +878,8 @@ def prepare_recommendations_and_start_seq(w: Tuple[float,float,float,float], top
     user_vecs = build_user_profile(pack, seed_rows, w)
     results = rank_items(pack, user_vecs, w, exclude_global_idx=selected, topk=topk)
 
+    st.session_state["ref_use_counts"] = {}
+
     rec_ids, scores, explanations = [], [], {}
     for gid, score, contrib in results:
         rec_ids.append(gid)
@@ -1020,6 +1032,7 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
     bundle = st.session_state.get("rec_bundle") or {}
     rec_ids = bundle.get("ids")
     scores = bundle.get("scores")
+    explanations = bundle.get("explanations") or {}  
 
     if not rec_ids:
         pack = st.session_state.pack
@@ -1046,8 +1059,6 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
 
         st.session_state.rec_bundle = {"ids": rec_ids, "scores": scores}
         bundle = st.session_state.rec_bundle
-
-    explanations = bundle.get("explanations", {})
     
     left, right = st.columns([7, 5], gap="large")
 
@@ -1082,13 +1093,10 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
                         unsafe_allow_html=True
                     )
 
-                    exp_html = explanations.get(gid)  # None se non disponibile
+                    exp_text = explanations.get(gid) or "Spiegazione non disponibile (mostra prima la modalità sequenziale per generarle)."
 
                     with st.popover("Perché?", use_container_width=True, key=f"why_{gid}"):
-                        if exp_html:
-                            st.markdown(exp_html, unsafe_allow_html=True)
-                        else:
-                            st.markdown("Spiegazione non disponibile (salta la modalità sequenziale per generarle).")
+                        st.markdown(exp_text, unsafe_allow_html=True)
 
                     st.markdown('</div>', unsafe_allow_html=True)
 
