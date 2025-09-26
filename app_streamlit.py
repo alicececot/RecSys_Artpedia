@@ -879,6 +879,11 @@ def screen_seed_select(data: List[Dict]):
                     st.markdown('<div class="art-card">', unsafe_allow_html=True)
 
                     img = load_image(item)
+
+                    with st.popover("Ingrandisci 🔍"):
+                        if img is not None:
+                            st.image(img, use_container_width=True)
+                            
                     if img is not None:
                         cropped_img = ImageOps.fit(
                             img, (450, 450), method=Image.Resampling.LANCZOS, centering=(0.5, 0.5)
@@ -896,16 +901,8 @@ def screen_seed_select(data: List[Dict]):
                         unsafe_allow_html=True
                     )
 
-                    cmd_cols = st.columns([1, 1], gap="small")
-                    with cmd_cols[0]:
-                        default_checked = gid in pre_sel
-                        st.checkbox("Seleziona", key=f"sel_{gid}", value=default_checked)
-                    with cmd_cols[1]:
-                        st.markdown("<div style='text-align:right'>", unsafe_allow_html=True)
-                        with st.popover("Ingrandisci 🔍", width="stretch", key=f"pop_{gid}"):
-                            if img is not None:
-                                st.image(img, width="stretch")
-                        st.markdown("</div>", unsafe_allow_html=True)
+                    default_checked = gid in pre_sel
+                    st.checkbox("Seleziona", key=f"sel_{gid}", value=default_checked)
 
                     st.markdown("</div>", unsafe_allow_html=True)
 
