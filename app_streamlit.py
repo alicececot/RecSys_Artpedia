@@ -854,22 +854,18 @@ def _sample_seed_pool(all_ids: List[int], k: int = TOPK_SEED) -> List[int]:
     return out
 
 def screen_seed_select(data: List[Dict]):
-    st.subheader("Seleziona 4 dipinti che ti piacciono")
+    st.subheader("Seleziona i dipinti che ti piacciono")
 
     if not st.session_state.seed_pool_ids:
         all_ids = list(st.session_state.id2item.keys())
         st.session_state.seed_pool_ids = _sample_seed_pool(all_ids, TOPK_SEED)
 
-    ids = st.session_state.seed_pool_ids[:12]  
-
+    ids = st.session_state.seed_pool_ids[:12]
     pre_sel = set(st.session_state.get("seed_selected_ids", []))
-
 
     with st.form("seed_pick_form", clear_on_submit=False):
         rows, cols_per_row = 4, 3
         idx = 0
-
-        # Griglia di card
         for r in range(rows):
             cols = st.columns(3, gap="small", border=True, width="stretch")
             for c in range(cols_per_row):
@@ -883,7 +879,6 @@ def screen_seed_select(data: List[Dict]):
 
                     img = load_image(item)
                     if img is not None:
-                        # Solo un crop per layout coerente (nessun enhance/gray-out)
                         cropped_img = ImageOps.fit(
                             img, (450, 450), method=Image.Resampling.LANCZOS, centering=(0.5, 0.5)
                         )
@@ -900,14 +895,20 @@ def screen_seed_select(data: List[Dict]):
                         unsafe_allow_html=True
                     )
 
-                    with st.popover("Anteprima 🔍"):
-                        if img is not None:
-                            st.image(img, use_container_width=True)
-
-                    default_checked = gid in pre_sel
-                    st.checkbox("Seleziona", key=f"sel_{gid}", value=default_checked)
+                    cmd_cols = st.columns([1, 1], gap="small")
+                    with cmd_cols[0]:
+                        default_checked = gid in pre_sel
+                        st.checkbox("Seleziona", key=f"sel_{gid}", value=default_checked)
+                    with cmd_cols[1]:
+                        with st.popover("Ingrandisci 🔍", use_container_width=True, key=f"pop_{gid}"):
+                            if img is not None:
+                                st.image(img, use_container_width=True)
 
                     st.markdown("</div>", unsafe_allow_html=True)
+
+        current_selected = [g for g in ids if st.session_state.get(f"sel_{g}", False)]
+        n_sel = len(current_selected)
+        st.markdown(f"**Seleziona almeno 4 dipinti** — _{n_sel} immagine{'' if n_sel==1 else 'i'} selezionat{'a' if n_sel==1 else 'e'}_")
 
         submitted = st.form_submit_button(
             "Genera raccomandazioni",
@@ -917,15 +918,16 @@ def screen_seed_select(data: List[Dict]):
 
     if submitted:
         selected = [g for g in ids if st.session_state.get(f"sel_{g}", False)]
-        if len(selected) != 4:
-            st.error("Seleziona esattamente 4 dipinti prima di proseguire.")
+        if len(selected) < 4:
+            st.error("Seleziona almeno 4 dipinti prima di proseguire.")
             return
 
         st.session_state.seed_selected_ids = selected
         st.session_state.slate_id = secrets.token_hex(6)
         st.session_state.phase = "rec"
         st.session_state.rec_start_ts = time.time()
-        st.rerun()  
+        st.rerun()
+ 
 
 
 
