@@ -963,7 +963,7 @@ def screen_seed_select(data: List[Dict]):
         prepare_recommendations_and_start_seq((ALPHA, BETA, GAMMA, DELTA))  
 
 def screen_recommend_sequential(delay_ms: int = 6000):
-    st.subheader("Raccomandazioni")
+    st.subheader("Raccomandazioni per te")
 
     bundle = st.session_state.get("rec_bundle")
     if not bundle or not bundle.get("ids"):
