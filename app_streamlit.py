@@ -1036,9 +1036,6 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
 
         rec_ids = []
         scores = []
-
-        bundle = st.session_state.get("rec_bundle") or {}
-        explanations = bundle.get("explanations", {})
         
         for gid, score, _ in results:
             rec_ids.append(gid)
@@ -1047,11 +1044,11 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
         rec_ids = rec_ids[:TOPK_REC]
         scores  = scores[:TOPK_REC]
 
-        st.session_state.rec_bundle = {
-            "ids": rec_ids,
-            "scores": scores,
-        }
+        st.session_state.rec_bundle = {"ids": rec_ids, "scores": scores}
+        bundle = st.session_state.rec_bundle
 
+    explanations = bundle.get("explanations", {})
+    
     left, right = st.columns([7, 5], gap="large")
 
     with left:
