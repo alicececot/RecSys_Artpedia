@@ -361,12 +361,11 @@ def content_based_explanation_gid(rec_gid: int,
     if rec_gid not in idx_map or not seed_gids:
         return f"Ti abbiamo raccomandato *{rec_title}* perché riteniamo che sia in linea con i tuoi gusti."
 
-    # 1) vettori fusi
     fused = fuse_modalities(pack.img, pack.vis, pack.ctx, pack.meta, w)
+
     rv = fused[idx_map[rec_gid]]
     rvn = np.linalg.norm(rv) + 1e-9
 
-    # 2) similarità con TUTTI i seed
     sims = []
     for sg in seed_gids:
         i = idx_map.get(int(sg))
@@ -374,41 +373,26 @@ def content_based_explanation_gid(rec_gid: int,
             continue
         sv = fused[i]
         sim = float(np.dot(rv, sv) / (rvn * (np.linalg.norm(sv) + 1e-9)))
-        sims.append((int(sg), sim))
+        sims.append((sg, sim))
 
     if not sims:
         return f"Ti abbiamo raccomandato *{rec_title}* perché riteniamo che sia in linea con i tuoi gusti."
 
-    # 3) prendi i migliori N seed (es. 4) — non usare epsilon, che tende a dare 1 solo seed
     sims.sort(key=lambda x: x[1], reverse=True)
-    TOP_M = min(4, len(sims))           # bacino di candidati
-    candidate_seeds = [g for g, _ in sims[:TOP_M]]
+    top_refs = [g for g, _ in sims[:max(1, k_refs)]]
 
-    # 4) rotazione: usa contatori, scegli i meno usati tra i candidati
-    counts = st.session_state.setdefault("ref_use_counts", {})
-    for g in seed_gids:
-        counts.setdefault(int(g), 0)
-
-    # ordina prima per conteggio crescente, poi per rank di similarità (stabile)
-    candidate_seeds.sort(key=lambda g: (counts.get(int(g), 0), candidate_seeds.index(g)))
-
-    chosen = candidate_seeds[:max(1, k_refs)]   # tipicamente 2
-    for g in chosen:
-        counts[int(g)] = counts.get(int(g), 0) + 1
-    st.session_state["ref_use_counts"] = counts  # salva
-
-    # 5) titoli
-    titles = []
-    for g in chosen:
-        t = (st.session_state.id2item.get(int(g), {}).get("title") or "").strip()
+    ref_titles = []
+    for g in top_refs:
+        it = st.session_state.id2item.get(int(g), {})
+        t = (it.get("title") or "").strip()
         if t:
-            titles.append(t)
+            ref_titles.append(t)
 
-    if not titles:
+    ref_list = _format_list_it(ref_titles)
+    if not ref_list:
         return f"Ti abbiamo raccomandato *{rec_title}* perché riteniamo che sia in linea con i tuoi gusti."
 
-    refs_txt = titles[0] if len(titles) == 1 else f"{titles[0]} e {titles[1]}"
-    return f"Ti abbiamo raccomandato *{rec_title}* perché hai apprezzato opere come *{refs_txt}*."
+    return f"Ti abbiamo raccomandato *{rec_title}* perché hai apprezzato opere come *{ref_list}*."
 
 
 def get_explanation_for_item(rec_gid: int, seed_gids: list, pack, w) -> str:
