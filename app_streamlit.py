@@ -883,7 +883,6 @@ def prepare_recommendations_and_start_seq(w: Tuple[float,float,float,float], top
     rec_ids = rec_ids[:topk]
     scores  = scores[:topk]
 
-    # 🎯 SALVA TUTTO NEL BUNDLE (raccomandazioni + spiegazioni)
     st.session_state.rec_bundle = {
         "ids": rec_ids,
         "scores": scores,
@@ -1068,6 +1067,8 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
                         unsafe_allow_html=True
                     )
 
+                    st.markdown("<div style='margin-top: 1rem;'></div>", unsafe_allow_html=True)
+                    
                     with st.popover("Perché?", use_container_width=True):
                         st.markdown(
                             f"<div style='padding: 1rem;'>{explanations.get(gid, 'Spiegazione non disponibile')}</div>",
