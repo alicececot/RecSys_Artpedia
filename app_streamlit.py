@@ -1062,14 +1062,14 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
                         st.markdown('<div class="img-missing">Immagine locale non trovata</div>', unsafe_allow_html=True)
 
                     st.markdown(
+                        f"<div style='min-height: 80px; display: flex; flex-direction: column; justify-content: space-between;'>"
                         f"<div class='titleline'><span class='title'>{item.get('title','Senza titolo')}</span> "
-                        f"<span class='meta'>({item.get('year','?')})</span></div>",
+                        f"<span class='meta'>({item.get('year','?')})</span></div>"
+                        f"</div>",
                         unsafe_allow_html=True
                     )
 
-                    st.markdown("<div style='margin-top: 1rem;'></div>", unsafe_allow_html=True)
-                    
-                    with st.popover("Perché?", use_container_width=True):
+                    with st.popover("❓ Perché questa raccomandazione?", use_container_width=True):
                         st.markdown(
                             f"<div style='padding: 1rem;'>{explanations.get(gid, 'Spiegazione non disponibile')}</div>",
                             unsafe_allow_html=True
