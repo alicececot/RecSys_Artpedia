@@ -922,7 +922,6 @@ def screen_seed_select(data: List[Dict]):
                     if is_sel: sel.remove(gid)
                     else:      sel.add(gid)
                     st.session_state.seed_selected_ids = list(sel)
-                    st.rerun()
 
                 st.markdown("</div>", unsafe_allow_html=True)
 
