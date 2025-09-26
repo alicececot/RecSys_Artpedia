@@ -981,9 +981,9 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
                 img = load_image(item)
                 cropped_img = ImageOps.fit(img, (450, 450), method=Image.Resampling.LANCZOS,centering=(0.5, 0.5))
 
-                 with st.popover("Ingrandisci 🔍", width="stretch"):
-                        if img is not None:
-                            st.image(img, width="stretch")
+                with st.popover("Ingrandisci 🔍", width="stretch"):
+                    if img is not None:
+                        st.image(img, width="stretch")
 
                 if img is not None:
                     show_img = cropped_img
