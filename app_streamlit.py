@@ -962,7 +962,7 @@ def screen_seed_select(data: List[Dict]):
         st.session_state.slate_id = secrets.token_hex(6)
         prepare_recommendations_and_start_seq((ALPHA, BETA, GAMMA, DELTA))  
 
-def screen_recommend_sequential(delay_ms: int = 1500):
+def screen_recommend_sequential(delay_ms: int = 2000):
     st.subheader("Raccomandazioni")
 
     bundle = st.session_state.get("rec_bundle")
@@ -978,7 +978,7 @@ def screen_recommend_sequential(delay_ms: int = 1500):
     idx = st.session_state.get("rec_idx", 0)
 
     if idx >= len(rec_ids):
-        st.session_state.phase = "rec"   # passaggio automatico alla griglia+questionario
+        st.session_state.phase = "rec"
         st.rerun()
         return
 
@@ -1003,17 +1003,13 @@ def screen_recommend_sequential(delay_ms: int = 1500):
         st.markdown(f"<div class='exp-box'><strong>Perché:</strong> {exp_html}</div>", unsafe_allow_html=True)
 
         elapsed_ms = int((time.time() - st.session_state.get("rec_ts", time.time())) * 1000)
-        remain = max(0, delay_ms - elapsed_ms)
 
-        if remain > 0:
-            secs = max(1, (remain + 999) // 1000)
-            st.caption(f"Il pulsante comparirà tra ~{secs} s…")
-            components.html(
-                f"<script>setTimeout(() => window.parent.location.reload(), {min(remain, 1200)});</script>",
-                height=0
-            )
+        if elapsed_ms < delay_ms:
+            st.button("Avanti →", use_container_width=True, disabled=True, key=f"next_disabled_{idx}")
+            time.sleep(min((delay_ms - elapsed_ms) / 1000.0, 0.5))
+            st.rerun()
         else:
-            if st.button("Avanti →", use_container_width=True):
+            if st.button("Avanti →", use_container_width=True, key=f"next_enabled_{idx}"):
                 st.session_state.rec_idx = idx + 1
                 st.session_state.rec_ts = time.time()
                 st.rerun()
@@ -1022,6 +1018,7 @@ def screen_recommend_sequential(delay_ms: int = 1500):
     if st.button("Interrompi e vai alla griglia"):
         st.session_state.phase = "rec"
         st.rerun()
+
 
 
 def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
