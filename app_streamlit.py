@@ -1089,10 +1089,8 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
         with st.form("likert_form_side", clear_on_submit=False):
             st.markdown(
                 """
-                <div style="padding:8px 0 16px 0;">
-                  <h2 style="margin:0; font-size:1.8rem; line-height:1.2;">
-                    Dicci cosa pensi di queste raccomandazioni
-                  </h2>
+                <div class="form-title-wrap">
+                  <h2 class="form-title">Dicci cosa pensi di queste raccomandazioni</h2>
                 </div>
                 """,
                 unsafe_allow_html=True
