@@ -1036,6 +1036,10 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
 
         rec_ids = []
         scores = []
+
+        bundle = st.session_state.get("rec_bundle") or {}
+        explanations = bundle.get("explanations", {})
+        
         for gid, score, _ in results:
             rec_ids.append(gid)
             scores.append(round(score, 6))
@@ -1080,6 +1084,14 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
                         f"<span class='meta'>({item.get('year','?')})</span></div>",
                         unsafe_allow_html=True
                     )
+
+                    exp_html = explanations.get(gid)  # None se non disponibile
+
+                    with st.popover("Perché?", use_container_width=True, key=f"why_{gid}"):
+                        if exp_html:
+                            st.markdown(exp_html, unsafe_allow_html=True)
+                        else:
+                            st.markdown("Spiegazione non disponibile (salta la modalità sequenziale per generarle).")
 
                     st.markdown('</div>', unsafe_allow_html=True)
 
