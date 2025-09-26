@@ -1084,11 +1084,19 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
                     st.markdown('</div>', unsafe_allow_html=True)
 
     with right:
-        st.markdown("### Dicci cosa pensi di queste raccomandazioni")
-        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
         likert_opts = ["Per niente d'accordo", "In disaccordo", "Neutrale", "D'accordo", "Totamente d'accordo"]
         with st.form("likert_form_side", clear_on_submit=False):
+            st.markdown(
+                """
+                <div style="padding:8px 0 16px 0;">
+                  <h2 style="margin:0; font-size:1.8rem; line-height:1.2;">
+                    Dicci cosa pensi di queste raccomandazioni
+                  </h2>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
             st.markdown("**Questi dipinti rispecchiano le mie preferenze e interessi personali.**")
             q1 = st.radio("accuracy", options=likert_opts, index=2, key="q1", label_visibility="collapsed")
 
