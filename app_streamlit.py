@@ -865,12 +865,15 @@ def prepare_recommendations_and_start_seq(w: Tuple[float,float,float,float], top
     gid_to_row = {int(g): i for i, g in enumerate(pack.ids.tolist())}
     seed_rows = [gid_to_row[g] for g in selected if g in gid_to_row]
 
+    # 🎯 CALCOLO UNA SOLA VOLTA - stessa logica del Codice 1
     user_vecs = build_user_profile(pack, seed_rows, w)
     results = rank_items(pack, user_vecs, w, exclude_global_idx=selected, topk=topk)
 
-    st.session_state["ref_use_counts"] = {}
+    # 🎯 PREPARA TUTTI I DATI UNA VOLTA SOLA
+    rec_ids: List[int] = []
+    scores: List[float] = []
+    explanations: Dict[int, str] = {}
 
-    rec_ids, scores, explanations = [], [], {}
     for gid, score, contrib in results:
         rec_ids.append(gid)
         scores.append(round(score, 6))
@@ -882,14 +885,15 @@ def prepare_recommendations_and_start_seq(w: Tuple[float,float,float,float], top
     rec_ids = rec_ids[:topk]
     scores  = scores[:topk]
 
+    # 🎯 SALVA TUTTO NEL BUNDLE (raccomandazioni + spiegazioni)
     st.session_state.rec_bundle = {
         "ids": rec_ids,
         "scores": scores,
-        "explanations": explanations,
+        "explanations": explanations,  # 🎯 SPIEGAZIONI GIÀ CALCOLATE
     }
     st.session_state.rec_idx = 0
     st.session_state.rec_ts = time.time()
-    st.session_state.rec_start_ts = time.time()
+    st.session_state.rec_start_ts = time.time()  # 🎯 TIMESTAMP INIZIO
     st.session_state.phase = "rec_seq"
     st.rerun()
 
@@ -968,26 +972,27 @@ def screen_recommend_sequential(delay_ms: int = 4000):
     st.subheader("Raccomandazioni per te")
 
     bundle = st.session_state.get("rec_bundle")
-    if not bundle or not bundle.get("ids"):
+    if not bundle:
         st.error("Nessuna raccomandazione disponibile.")
         if st.button("Torna alla selezione"):
             st.session_state.phase = "seed"
             st.rerun()
         return
 
+    # 🎯 USA I DATI PRECALCOLATI
     rec_ids = bundle["ids"]
-    explanations = bundle["explanations"]
+    explanations = bundle["explanations"]  # 🎯 SPIEGAZIONI GIÀ PRONTE
     idx = st.session_state.get("rec_idx", 0)
 
     if idx >= len(rec_ids):
-        st.session_state.phase = "rec"
+        st.session_state.phase = "rec"  # 🎯 Va alla griglia con STESSE raccomandazioni
         st.rerun()
         return
 
     gid = rec_ids[idx]
     item = st.session_state.id2item.get(gid, {})
     img = load_image(item)
-    exp_html = explanations.get(gid, "")
+    exp_html = explanations.get(gid, "")  # 🎯 NO ricalcolo
 
     left, right = st.columns([7, 5], gap="large")
     with left:
@@ -1019,37 +1024,20 @@ def screen_recommend_sequential(delay_ms: int = 4000):
 def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
     st.subheader("Raccomandazioni per te")
 
-    bundle = st.session_state.get("rec_bundle") or {}
-    rec_ids = bundle.get("ids")
-    scores = bundle.get("scores")
+    # 🎯 USA SOLO I DATI PRECALCOLATI - NESSUN RICALCOLO
+    bundle = st.session_state.get("rec_bundle")
+    if not bundle or not bundle.get("ids"):
+        st.error("Nessuna raccomandazione disponibile. Torna alla selezione.")
+        if st.button("Torna alla selezione"):
+            st.session_state.phase = "seed"
+            st.rerun()
+        return
 
-    if not rec_ids:
-        pack = st.session_state.pack
-        if pack is None:
-            st.error("Embedding non caricati. Controlla EMB_NPZ_PATH.")
-            st.stop()
+    rec_ids = bundle["ids"]
+    scores = bundle["scores"]
+    explanations = bundle["explanations"]  # 🎯 SPIEGAZIONI GIÀ PRONTE
 
-        selected = st.session_state.seed_selected_ids
-        gid_to_row = {int(g): i for i, g in enumerate(pack.ids.tolist())}
-        seed_rows = [gid_to_row[g] for g in selected if g in gid_to_row]
-
-        user_vecs = build_user_profile(pack, seed_rows, w)
-        results = rank_items(pack, user_vecs, w, exclude_global_idx=selected, topk=TOPK_REC)
-
-        rec_ids = []
-        scores = []
-        for gid, score, _ in results:
-            rec_ids.append(gid)
-            scores.append(round(score, 6))
-
-        rec_ids = rec_ids[:TOPK_REC]
-        scores  = scores[:TOPK_REC]
-
-        st.session_state.rec_bundle = {
-            "ids": rec_ids,
-            "scores": scores,
-        }
-
+    # 🎯 VISUALIZZAZIONE GRIGLIA usando i dati precalcolati
     left, right = st.columns([7, 5], gap="large")
 
     with left:
@@ -1083,10 +1071,16 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
                         unsafe_allow_html=True
                     )
 
+                    # 🎯 USA SPIEGAZIONE PRECALCOLATA
+                    st.markdown(
+                        f"<div class='exp-box'><strong>Perché:</strong> {explanations.get(gid, '')}</div>",
+                        unsafe_allow_html=True
+                    )
+
                     st.markdown('</div>', unsafe_allow_html=True)
 
     with right:
-
+        # QUESTIONARIO LATERALE
         likert_opts = ["Per niente d'accordo", "In disaccordo", "Neutrale", "D'accordo", "Totamente d'accordo"]
         with st.form("likert_form_side", clear_on_submit=False):
             st.markdown(
@@ -1118,7 +1112,7 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
             st.markdown("**La spiegazione era chiara e comprensibile.**")
             q7 = st.radio("explanation clarity", options=likert_opts, index=2, key="q7", label_visibility="collapsed")
 
-            st.markdown("**La spiegazione mi ha aiutato a capire perché l’opera era raccomandata.**")
+            st.markdown("**La spiegazione mi ha aiutato a capire perché l'opera era raccomandata.**")
             q8 = st.radio("trust", options=likert_opts, index=2, key="q8", label_visibility="collapsed")
 
             submitted = st.form_submit_button("Invia", use_container_width=True)
@@ -1134,7 +1128,7 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
                 "understanding": likert_opts.index(q7) + 1,
                 "usefulness": likert_opts.index(q8) + 1
             }
-            dur_ms = int((time.time() - st.session_state.rec_start_ts) * 1000)
+            dur_ms = int((time.time() - st.session_state.rec_start_ts) * 1000)  # 🎯 USA TIMESTAMP INIZIALE
             log_complete_study_session(rec_ids, scores, ratings, dur_ms)
             st.session_state.phase = "done"
             st.rerun()
@@ -1142,7 +1136,6 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
 def screen_done():
     st.success("Grazie! Hai completato il questionario.")
     st.caption(f"Il tuo codice partecipante: {st.session_state.user_id}")
-
 
 
 def main():
