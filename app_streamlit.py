@@ -1082,11 +1082,11 @@ def main():
     st.title(APP_TITLE)
     load_css("./style.css")
 
-    json_path = st.sidebar.text_input("Percorso JSON Artpedia", value=DEFAULT_JSON_PATH)
+    json_path = DEFAULT_JSON_PATH
     if not os.path.exists(json_path):
-        st.warning("Percorso JSON non trovato. Specifica il path corretto al file Artpedia.")
+        st.error(f"Percorso JSON non trovato: {json_path}")
         st.stop()
-
+        
     data = load_artpedia(json_path)
     id2item = {it["id"]: it for it in data}
     st.session_state.id2item = id2item
