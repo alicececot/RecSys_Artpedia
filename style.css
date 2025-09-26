@@ -72,11 +72,12 @@
 
 .exp-box{
   margin-top: 8px;
+  margin-bottom: 32px;
   padding: 10px 12px;
   border: 1px solid #2ecc71 !important;              
   background: linear-gradient(180deg,#f1fbf6,#e9f9f0) !important; 
   border-radius: 12px;
-  color: #174d2d;                          
+  color: #174d2d;
 }
 .exp-box strong{ color:#146e3a; }
 
