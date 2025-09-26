@@ -1048,101 +1048,91 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
             "scores": scores,
         }
 
-    rows, cols_per_row = 4, 3
-    idx = 0
-    for r in range(rows):
-        cols = st.columns(
-            3,
-            gap="small",
-            border=True,
-            width="stretch",
-        )
-        for c in range(cols_per_row):
-            if idx >= len(rec_ids):
-                break
-            gid = rec_ids[idx]; idx += 1
-            item = st.session_state.id2item.get(gid, {})
-            img = load_image(item)
-            cropped_img = ImageOps.fit(img, (450, 450), method=Image.Resampling.LANCZOS,centering=(0.5, 0.5))
+        left, right = st.columns([7, 5], gap="large")
 
-
-            with cols[c]:
-                st.markdown('<div class="art-card">', unsafe_allow_html=True)
-
+    with left:
+        rows, cols_per_row = 4, 3
+        idx = 0
+        for r in range(rows):
+            cols = st.columns(3, gap="small", border=True)
+            for c in range(cols_per_row):
+                if idx >= len(rec_ids):
+                    break
+                gid = rec_ids[idx]; idx += 1
+                item = st.session_state.id2item.get(gid, {})
                 img = load_image(item)
-                cropped_img = ImageOps.fit(img, (450, 450), method=Image.Resampling.LANCZOS,centering=(0.5, 0.5))
+                cropped_img = ImageOps.fit(img, (450, 450), method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
 
-                with st.popover("Ingrandisci 🔍", width="stretch"):
+                with cols[c]:
+                    st.markdown('<div class="art-card">', unsafe_allow_html=True)
+
+                    img = load_image(item)
+                    cropped_img = ImageOps.fit(img, (450, 450), method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
+
+                    with st.popover("Ingrandisci 🔍", use_container_width=True):
+                        if img is not None:
+                            st.image(img, use_container_width=True)
+
                     if img is not None:
-                        st.image(img, width="stretch")
+                        st.image(cropped_img, use_container_width=True)
+                    else:
+                        st.markdown('<div class="img-missing">Immagine locale non trovata</div>', unsafe_allow_html=True)
 
-                if img is not None:
-                    show_img = cropped_img
-                    st.image(show_img, width="stretch")
-                else:
-                    st.markdown('<div class="img-missing">Immagine locale non trovata</div>', unsafe_allow_html=True)
+                    st.markdown(
+                        f"<div class='titleline'><span class='title'>{item.get('title','Senza titolo')}</span> "
+                        f"<span class='meta'>({item.get('year','?')})</span></div>",
+                        unsafe_allow_html=True
+                    )
 
-                st.markdown(
-                    f"<div class='titleline'><span class='title'>{item.get('title','Senza titolo')}</span> "
-                    f"<span class='meta'>({item.get('year','?')})</span></div>",
-                    unsafe_allow_html=True
-                )
+                    st.markdown('</div>', unsafe_allow_html=True)
 
-                st.markdown('</div>', unsafe_allow_html=True)
+    with right:
+        st.markdown("### Dicci cosa pensi di queste raccomandazioni")
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
-    st.markdown("""
-        <div style='border:2px solid var(--accent); padding: 16px; border-radius: 8px;'>
-          <h3>Dicci cosa pensi di queste raccomandazioni</h3> 
-        </div>
-    """, unsafe_allow_html=True)
+        likert_opts = ["Per niente d'accordo", "In disaccordo", "Neutrale", "D'accordo", "Totamente d'accordo"]
+        with st.form("likert_form_side", clear_on_submit=False):
+            st.markdown("**Questi dipinti rispecchiano le mie preferenze e interessi personali.**")
+            q1 = st.radio("accuracy", options=likert_opts, index=2, key="q1", label_visibility="collapsed")
 
-    likert_opts = ["Per niente d'accordo", "In disaccordo", "Neutrale", "D'accordo", "Totalmente d'accordo"]
-    st.markdown('<div class="likert-block">', unsafe_allow_html=True)
-    with st.form("likert_form", clear_on_submit=False):
-        st.markdown("#### Questi dipinti rispecchiano le mie preferenze e interessi personali.")
-        q1 = st.radio("accuracy", options=likert_opts, index=2, key="q1", label_visibility="collapsed")
+            st.markdown("**Questi dipinti sono tra loro diversi.**")
+            q2 = st.radio("diversity", options=likert_opts, index=2, key="q2", label_visibility="collapsed")
 
-        st.markdown("#### Questi dipinti sono tra loro diversi.")
-        q2 = st.radio("diversity", options=likert_opts, index=2, key="q2", label_visibility="collapsed")
+            st.markdown("**Ho scoperto dipinti che non conoscevo.**")
+            q3 = st.radio("novelty", options=likert_opts, index=2, key="q3", label_visibility="collapsed")
 
-        st.markdown("#### Ho scoperto dipinti che non conoscevo.")
-        q3 = st.radio("novelty", options=likert_opts, index=2, key="q3", label_visibility="collapsed")
+            st.markdown("**Ho trovato dipinti sorprendentemente interessanti.**")
+            q4 = st.radio("serendipity", options=likert_opts, index=2, key="q4", label_visibility="collapsed")
 
-        st.markdown("#### Ho trovato dipinti sorprendentemente interessanti.")
-        q4 = st.radio("serendipity", options=likert_opts, index=2, key="q4", label_visibility="collapsed")
+            st.markdown("**Ho capito chiaramente perché questi dipinti mi sono stati raccomandati.**")
+            q5 = st.radio("explanation transparency", options=likert_opts, index=2, key="q5", label_visibility="collapsed")
 
-        st.markdown("#### Ho capito chiaramente perché questi dipinti mi sono stati raccomandati.")
-        q5 = st.radio("explanation transparency", options=likert_opts, index=2, key="q5", label_visibility="collapsed")
+            st.markdown("**La spiegazione ha contribuito ad aumentare la mia fiducia nelle raccomandazioni proposte.**")
+            q6 = st.radio("explanation usefulness", options=likert_opts, index=2, key="q6", label_visibility="collapsed")
 
-        st.markdown("#### La spiegazione ha contribuito ad aumentare la mia fiducia nelle raccomandazioni proposte.")
-        q6 = st.radio("explanation usefulness", options=likert_opts, index=2, key="q6", label_visibility="collapsed")
+            st.markdown("**La spiegazione era chiara e comprensibile.**")
+            q7 = st.radio("explanation clarity", options=likert_opts, index=2, key="q7", label_visibility="collapsed")
 
-        st.markdown("#### La spiegazione era chiara e comprensibile.")
-        q7 = st.radio("explanation clarity", options=likert_opts, index=2, key="q7", label_visibility="collapsed")
+            st.markdown("**La spiegazione mi ha aiutato a capire perché l’opera era raccomandata.**")
+            q8 = st.radio("trust", options=likert_opts, index=2, key="q8", label_visibility="collapsed")
 
-        st.markdown("#### La spiegazione mi ha aiutato a capire perché l’opera era raccomandata.")
-        q8 = st.radio("trust", options=likert_opts, index=2, key="q8", label_visibility="collapsed")
+            submitted = st.form_submit_button("Invia", use_container_width=True)
 
-        submitted = st.form_submit_button("Invia", width="stretch")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    if submitted:
-        ratings = {
-            "preference": likert_opts.index(q1) + 1,
-            "diversity": likert_opts.index(q2) + 1,
-            "novelty": likert_opts.index(q3) + 1,
-            "serendipity": likert_opts.index(q4) + 1,
-            "transparency": likert_opts.index(q5) + 1,
-            "trust": likert_opts.index(q6) + 1,
-            "understanding": likert_opts.index(q7) + 1,
-            "usefulness": likert_opts.index(q8) + 1
-        }
-        dur_ms = int((time.time() - st.session_state.rec_start_ts) * 1000)
-        log_complete_study_session(rec_ids, scores, ratings, dur_ms)
-        st.session_state.phase = "done"
-        st.rerun()
-
-
+        if submitted:
+            ratings = {
+                "preference": likert_opts.index(q1) + 1,
+                "diversity": likert_opts.index(q2) + 1,
+                "novelty": likert_opts.index(q3) + 1,
+                "serendipity": likert_opts.index(q4) + 1,
+                "transparency": likert_opts.index(q5) + 1,
+                "trust": likert_opts.index(q6) + 1,
+                "understanding": likert_opts.index(q7) + 1,
+                "usefulness": likert_opts.index(q8) + 1
+            }
+            dur_ms = int((time.time() - st.session_state.rec_start_ts) * 1000)
+            log_complete_study_session(rec_ids, scores, ratings, dur_ms)
+            st.session_state.phase = "done"
+            st.rerun()
 
 def screen_done():
     st.success("Grazie! Hai completato il questionario.")
