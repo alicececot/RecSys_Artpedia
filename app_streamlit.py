@@ -854,7 +854,7 @@ def _sample_seed_pool(all_ids: List[int], k: int = TOPK_SEED) -> List[int]:
     return out
 
 def screen_seed_select(data: List[Dict]):
-    st.subheader("Seleziona 4 dipinti che ti piacciono")
+    st.subheader("Seleziona almeno 4 dipinti che ti piacciono")
 
     if not st.session_state.seed_pool_ids:
         all_ids = list(st.session_state.id2item.keys())
@@ -906,6 +906,10 @@ def screen_seed_select(data: List[Dict]):
 
                     st.markdown("</div>", unsafe_allow_html=True)
 
+        current_selected = [g for g in ids if st.session_state.get(f"sel_{g}", False)]
+        n_sel = len(current_selected)
+        st.markdown(f"Hai selezionato {n_sel} immagine{'' if n_sel==1 else 'i'}")
+
         submitted = st.form_submit_button(
             "Genera raccomandazioni",
             type="primary",
@@ -915,8 +919,8 @@ def screen_seed_select(data: List[Dict]):
 
     if submitted:
         selected = [g for g in ids if st.session_state.get(f"sel_{g}", False)]
-        if len(selected) != 4:
-            st.error("Seleziona esattamente 4 dipinti prima di proseguire.")
+        if len(selected) < 4:
+            st.error("Seleziona almeno 4 dipinti prima di proseguire.")
             return
 
         st.session_state.seed_selected_ids = selected
