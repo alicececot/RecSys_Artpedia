@@ -13,6 +13,8 @@ import warnings
 from PIL import Image, ImageOps, ImageEnhance
 import hashlib
 import re  
+import streamlit.components.v1 as components
+
 
 from openai import OpenAI
 
@@ -853,6 +855,43 @@ def _sample_seed_pool(all_ids: List[int], k: int = TOPK_SEED) -> List[int]:
 
     return out
 
+def prepare_recommendations_and_start_seq(w: Tuple[float,float,float,float], topk: int = TOPK_REC):
+    pack = st.session_state.pack
+    if pack is None:
+        st.error("Embedding non caricati. Controlla EMB_NPZ_PATH.")
+        st.stop()
+
+    selected = st.session_state.seed_selected_ids
+    gid_to_row = {int(g): i for i, g in enumerate(pack.ids.tolist())}
+    seed_rows = [gid_to_row[g] for g in selected if g in gid_to_row]
+
+    user_vecs = build_user_profile(pack, seed_rows, w)
+    results = rank_items(pack, user_vecs, w, exclude_global_idx=selected, topk=topk)
+
+    rec_ids, scores, explanations = [], [], {}
+    for gid, score, contrib in results:
+        rec_ids.append(gid)
+        scores.append(round(score, 6))
+        explanation = get_explanation_for_item(gid, selected, pack, w)
+        explanation_clean = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", explanation)
+        explanation_clean = re.sub(r"\*(.+?)\*", r"<em>\1</em>", explanation_clean)
+        explanations[gid] = explanation_clean
+
+    rec_ids = rec_ids[:topk]
+    scores  = scores[:topk]
+
+    st.session_state.rec_bundle = {
+        "ids": rec_ids,
+        "scores": scores,
+        "explanations": explanations,
+    }
+    st.session_state.rec_idx = 0
+    st.session_state.rec_ts = time.time()
+    st.session_state.rec_start_ts = time.time()
+    st.session_state.phase = "rec_seq"
+    st.rerun()
+
+
 def screen_seed_select(data: List[Dict]):
     st.subheader("Seleziona almeno 4 dipinti che ti piacciono")
 
@@ -921,41 +960,103 @@ def screen_seed_select(data: List[Dict]):
 
         st.session_state.seed_selected_ids = selected
         st.session_state.slate_id = secrets.token_hex(6)
+        prepare_recommendations_and_start_seq((ALPHA, BETA, GAMMA, DELTA))  
+
+def screen_recommend_sequential(delay_ms: int = 1500):
+    st.subheader("Raccomandazioni")
+
+    bundle = st.session_state.get("rec_bundle")
+    if not bundle or not bundle.get("ids"):
+        st.error("Nessuna raccomandazione disponibile.")
+        if st.button("Torna alla selezione"):
+            st.session_state.phase = "seed"
+            st.rerun()
+        return
+
+    rec_ids = bundle["ids"]
+    explanations = bundle["explanations"]
+    idx = st.session_state.get("rec_idx", 0)
+
+    if idx >= len(rec_ids):
+        st.session_state.phase = "rec"   # passaggio automatico alla griglia+questionario
+        st.rerun()
+        return
+
+    gid = rec_ids[idx]
+    item = st.session_state.id2item.get(gid, {})
+    img = load_image(item)
+    exp_html = explanations.get(gid, "")
+
+    left, right = st.columns([7, 5], gap="large")
+    with left:
+        if img is not None:
+            st.image(img, use_container_width=True)
+        else:
+            st.markdown('<div class="img-missing">Immagine non trovata</div>', unsafe_allow_html=True)
+
+    with right:
+        st.markdown(
+            f"<h3 style='margin-top:0'>{item.get('title','Senza titolo')} "
+            f"<span style='font-weight:400;color:var(--muted);'>({item.get('year','?')})</span></h3>",
+            unsafe_allow_html=True
+        )
+        st.markdown(f"<div class='exp-box'><strong>Perché:</strong> {exp_html}</div>", unsafe_allow_html=True)
+
+        elapsed_ms = int((time.time() - st.session_state.get("rec_ts", time.time())) * 1000)
+        remain = max(0, delay_ms - elapsed_ms)
+
+        if remain > 0:
+            secs = max(1, (remain + 999) // 1000)
+            st.caption(f"Il pulsante comparirà tra ~{secs} s…")
+            components.html(
+                f"<script>setTimeout(() => window.parent.location.reload(), {min(remain, 1200)});</script>",
+                height=0
+            )
+        else:
+            if st.button("Avanti →", use_container_width=True):
+                st.session_state.rec_idx = idx + 1
+                st.session_state.rec_ts = time.time()
+                st.rerun()
+
+    st.divider()
+    if st.button("Interrompi e vai alla griglia"):
         st.session_state.phase = "rec"
-        st.session_state.rec_start_ts = time.time()
-        st.rerun()  
- 
+        st.rerun()
+
 
 def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
     st.subheader("Raccomandazioni per te")
 
-    pack = st.session_state.pack
-    if pack is None:
-        st.error("Embedding non caricati. Controlla EMB_NPZ_PATH.")
-        st.stop()
+    bundle = st.session_state.get("rec_bundle")
 
-    selected = st.session_state.seed_selected_ids
+    if bundle and bundle.get("ids"):
+        rec_ids = bundle["ids"]
+        scores = bundle["scores"]
+    else:
+        pack = st.session_state.pack
+        if pack is None:
+            st.error("Embedding non caricati. Controlla EMB_NPZ_PATH.")
+            st.stop()
 
-    gid_to_row = {int(g): i for i, g in enumerate(pack.ids.tolist())}
-    seed_rows = [gid_to_row[g] for g in selected if g in gid_to_row]
+        selected = st.session_state.seed_selected_ids
+        gid_to_row = {int(g): i for i, g in enumerate(pack.ids.tolist())}
+        seed_rows = [gid_to_row[g] for g in selected if g in gid_to_row]
 
-    user_vecs = build_user_profile(pack, seed_rows, w)
-    results = rank_items(pack, user_vecs, w, exclude_global_idx=selected, topk=TOPK_REC)
+        user_vecs = build_user_profile(pack, seed_rows, w)
+        results = rank_items(pack, user_vecs, w, exclude_global_idx=selected, topk=TOPK_REC)
 
-    rec_ids: List[int] = []
-    scores: List[float] = []
-    explanations: Dict[int, str] = {}
+        rec_ids, scores = [], []
+        for gid, score, contrib in results:
+            rec_ids.append(gid)
+            scores.append(round(score, 6))
 
-    for gid, score, contrib in results:
-        rec_ids.append(gid)
-        scores.append(round(score, 6))
-        explanation = get_explanation_for_item(gid, selected, pack, w)
-        explanation_clean = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", explanation)
-        explanation_clean = re.sub(r"\*(.+?)\*", r"<em>\1</em>", explanation_clean)
-        explanations[gid] = explanation_clean
+        rec_ids = rec_ids[:TOPK_REC]
+        scores  = scores[:TOPK_REC]
 
-    rec_ids = rec_ids[:TOPK_REC]
-    scores  = scores[:TOPK_REC]
+        st.session_state.rec_bundle = {
+            "ids": rec_ids,
+            "scores": scores,
+        }
 
     rows, cols_per_row = 4, 3
     idx = 0
@@ -994,11 +1095,6 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
                 st.markdown(
                     f"<div class='titleline'><span class='title'>{item.get('title','Senza titolo')}</span> "
                     f"<span class='meta'>({item.get('year','?')})</span></div>",
-                    unsafe_allow_html=True
-                )
-
-                st.markdown(
-                    f"<div class='exp-box'><strong>Perché:</strong> {explanations.get(gid, '')}</div>",
                     unsafe_allow_html=True
                 )
 
@@ -1117,6 +1213,8 @@ def main():
         screen_background_questions()
     elif phase == "seed":
         screen_seed_select(data)
+    elif phase == "rec_seq":
+        screen_recommend_sequential(delay_ms=1500)
     elif phase == "rec":
         screen_recommend(data, w)
     else:
