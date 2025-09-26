@@ -1017,12 +1017,11 @@ def screen_recommend_sequential(delay_ms: int = 6000):
 def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
     st.subheader("Raccomandazioni per te")
 
-    bundle = st.session_state.get("rec_bundle")
+    bundle = st.session_state.get("rec_bundle") or {}
+    rec_ids = bundle.get("ids")
+    scores = bundle.get("scores")
 
-    if bundle and bundle.get("ids"):
-        rec_ids = bundle["ids"]
-        scores = bundle["scores"]
-    else:
+    if not rec_ids:
         pack = st.session_state.pack
         if pack is None:
             st.error("Embedding non caricati. Controlla EMB_NPZ_PATH.")
@@ -1035,8 +1034,9 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
         user_vecs = build_user_profile(pack, seed_rows, w)
         results = rank_items(pack, user_vecs, w, exclude_global_idx=selected, topk=TOPK_REC)
 
-        rec_ids, scores = [], []
-        for gid, score, contrib in results:
+        rec_ids = []
+        scores = []
+        for gid, score, _ in results:
             rec_ids.append(gid)
             scores.append(round(score, 6))
 
@@ -1048,7 +1048,7 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
             "scores": scores,
         }
 
-        left, right = st.columns([7, 5], gap="large")
+    left, right = st.columns([7, 5], gap="large")
 
     with left:
         rows, cols_per_row = 4, 3
@@ -1065,9 +1065,6 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
 
                 with cols[c]:
                     st.markdown('<div class="art-card">', unsafe_allow_html=True)
-
-                    img = load_image(item)
-                    cropped_img = ImageOps.fit(img, (450, 450), method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
 
                     with st.popover("Ingrandisci 🔍", use_container_width=True):
                         if img is not None:
