@@ -865,11 +865,9 @@ def prepare_recommendations_and_start_seq(w: Tuple[float,float,float,float], top
     gid_to_row = {int(g): i for i, g in enumerate(pack.ids.tolist())}
     seed_rows = [gid_to_row[g] for g in selected if g in gid_to_row]
 
-    # 🎯 CALCOLO UNA SOLA VOLTA - stessa logica del Codice 1
     user_vecs = build_user_profile(pack, seed_rows, w)
     results = rank_items(pack, user_vecs, w, exclude_global_idx=selected, topk=topk)
 
-    # 🎯 PREPARA TUTTI I DATI UNA VOLTA SOLA
     rec_ids: List[int] = []
     scores: List[float] = []
     explanations: Dict[int, str] = {}
@@ -889,11 +887,11 @@ def prepare_recommendations_and_start_seq(w: Tuple[float,float,float,float], top
     st.session_state.rec_bundle = {
         "ids": rec_ids,
         "scores": scores,
-        "explanations": explanations,  # 🎯 SPIEGAZIONI GIÀ CALCOLATE
+        "explanations": explanations,  
     }
     st.session_state.rec_idx = 0
     st.session_state.rec_ts = time.time()
-    st.session_state.rec_start_ts = time.time()  # 🎯 TIMESTAMP INIZIO
+    st.session_state.rec_start_ts = time.time()  
     st.session_state.phase = "rec_seq"
     st.rerun()
 
@@ -979,20 +977,19 @@ def screen_recommend_sequential(delay_ms: int = 4000):
             st.rerun()
         return
 
-    # 🎯 USA I DATI PRECALCOLATI
     rec_ids = bundle["ids"]
-    explanations = bundle["explanations"]  # 🎯 SPIEGAZIONI GIÀ PRONTE
+    explanations = bundle["explanations"] 
     idx = st.session_state.get("rec_idx", 0)
 
     if idx >= len(rec_ids):
-        st.session_state.phase = "rec"  # 🎯 Va alla griglia con STESSE raccomandazioni
+        st.session_state.phase = "rec"  
         st.rerun()
         return
 
     gid = rec_ids[idx]
     item = st.session_state.id2item.get(gid, {})
     img = load_image(item)
-    exp_html = explanations.get(gid, "")  # 🎯 NO ricalcolo
+    exp_html = explanations.get(gid, "")  
 
     left, right = st.columns([7, 5], gap="large")
     with left:
@@ -1071,8 +1068,11 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
                         unsafe_allow_html=True
                     )
 
-                    with st.popover("Perche?", use_container_width=True):
-                        explanations.get(gid, '')
+                    with st.popover("Perché?", use_container_width=True):
+                        st.markdown(
+                            f"<div style='padding: 1rem;'>{explanations.get(gid, 'Spiegazione non disponibile')}</div>",
+                            unsafe_allow_html=True
+                        )
 
                     st.markdown('</div>', unsafe_allow_html=True)
 
