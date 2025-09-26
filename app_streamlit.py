@@ -861,82 +861,72 @@ def screen_seed_select(data: List[Dict]):
         st.session_state.seed_pool_ids = _sample_seed_pool(all_ids, TOPK_SEED)
 
     ids = st.session_state.seed_pool_ids[:12]  
-    sel = set(st.session_state.seed_selected_ids)
-    
-    rows, cols_per_row = 4, 3
-    idx = 0
 
-    for r in range(rows):
-        cols = st.columns(
-            3,
-            gap="small",
-            border=True,
-            width="stretch",
+    pre_sel = set(st.session_state.get("seed_selected_ids", []))
+
+
+    with st.form("seed_pick_form", clear_on_submit=False):
+        rows, cols_per_row = 4, 3
+        idx = 0
+
+        # Griglia di card
+        for r in range(rows):
+            cols = st.columns(3, gap="small", border=True, width="stretch")
+            for c in range(cols_per_row):
+                if idx >= len(ids):
+                    break
+                gid = ids[idx]; idx += 1
+                item = st.session_state.id2item[gid]
+
+                with cols[c]:
+                    st.markdown('<div class="art-card">', unsafe_allow_html=True)
+
+                    img = load_image(item)
+                    if img is not None:
+                        # Solo un crop per layout coerente (nessun enhance/gray-out)
+                        cropped_img = ImageOps.fit(
+                            img, (450, 450), method=Image.Resampling.LANCZOS, centering=(0.5, 0.5)
+                        )
+                        st.image(cropped_img, use_container_width=True)
+                    else:
+                        st.markdown(
+                            '<div class="img-missing">Immagine non trovata</div>',
+                            unsafe_allow_html=True
+                        )
+
+                    st.markdown(
+                        f"<div class='titleline'><span class='title'>{item.get('title','Senza titolo')}</span> "
+                        f"<span class='meta'>({item.get('year','?')})</span></div>",
+                        unsafe_allow_html=True
+                    )
+
+                    with st.popover("Anteprima 🔍"):
+                        if img is not None:
+                            st.image(img, use_container_width=True)
+
+                    default_checked = gid in pre_sel
+                    st.checkbox("Seleziona", key=f"sel_{gid}", value=default_checked)
+
+                    st.markdown("</div>", unsafe_allow_html=True)
+
+        submitted = st.form_submit_button(
+            "Genera raccomandazioni",
+            type="primary",
+            use_container_width=True
         )
-        for c in range(cols_per_row):
-            if idx >= len(ids):
-                break
-            gid = ids[idx]; idx += 1
 
+    if submitted:
+        selected = [g for g in ids if st.session_state.get(f"sel_{g}", False)]
+        if len(selected) != 4:
+            st.error("Seleziona esattamente 4 dipinti prima di proseguire.")
+            return
 
-            item = st.session_state.id2item[gid]
-            is_sel = gid in sel
-            reached_limit = len(sel) >= 4
-            disabled_this = (reached_limit and not is_sel)
-
-            with cols[c]:
-                st.markdown(f'<div class="art-card {"is-selected" if is_sel else ""}">', unsafe_allow_html=True)
-
-                
-                img = load_image(item)
-                cropped_img = ImageOps.fit(img, (450, 450), method=Image.Resampling.LANCZOS,centering=(0.5, 0.5))
-                
-                if st.button("Ingrandisci 🔍", key=f"zoom_{gid}_{r}_{c}",width='stretch'):
-                    @st.dialog(item.get('title','Senza titolo'))
-                    def show_original():
-                        st.image(img)
-                    show_original()
-                    
-                if img is not None:
-                    show_img = cropped_img
-
-                    if disabled_this and not is_sel:
-                        show_img = ImageEnhance.Color(show_img).enhance(0.2)
-                        show_img = ImageEnhance.Brightness(show_img).enhance(0.75)
-                    st.image(show_img, width="stretch")
-
-                else:
-                    st.markdown('<div class="img-missing">Immagine locale non trovata</div>', unsafe_allow_html=True)
-
-                st.markdown(
-                    f"<div class='titleline'><span class='title'>{item.get('title','Senza titolo')}</span> "
-                    f"<span class='meta'>({item.get('year','?')})</span></div>",
-                    unsafe_allow_html=True
-                )
-
-                if st.button(("Deseleziona" if is_sel else "Seleziona"),
-                             key=f"tap_{gid}_{r}_{c}",
-                             disabled=(disabled_this and not is_sel),
-                             width='stretch'):
-                    
-                    if is_sel: sel.remove(gid)
-                    else:      sel.add(gid)
-                    st.session_state.seed_selected_ids = list(sel)
-                    st.rerun()
-
-                st.markdown("</div>", unsafe_allow_html=True)
-
-    st.write(f"Selezionati: **{len(sel)}/4**")
-
-    if st.button("Genera raccomandazioni",
-                 disabled=(len(sel) != 4),
-                 width='stretch',
-                 type="primary"):
-
+        st.session_state.seed_selected_ids = selected
         st.session_state.slate_id = secrets.token_hex(6)
         st.session_state.phase = "rec"
         st.session_state.rec_start_ts = time.time()
-        st.rerun()
+        st.rerun()  
+
 
 
 
