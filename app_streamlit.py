@@ -882,7 +882,7 @@ def screen_seed_select(data: List[Dict]):
 
                     with st.popover("Ingrandisci 🔍", width="stretch"):
                         if img is not None:
-                            st.image(img, use_container_width=True)
+                            st.image(img, width="stretch")
                             
                     if img is not None:
                         cropped_img = ImageOps.fit(
@@ -981,11 +981,9 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
                 img = load_image(item)
                 cropped_img = ImageOps.fit(img, (450, 450), method=Image.Resampling.LANCZOS,centering=(0.5, 0.5))
 
-                if st.button("Ingrandisci 🔍", key=f"zoom_{gid}_{r}_{c}",width='stretch'):
-                    @st.dialog(item.get('title','Senza titolo'))
-                    def show_original():
-                        st.image(img)
-                    show_original()
+                 with st.popover("Ingrandisci 🔍", width="stretch"):
+                        if img is not None:
+                            st.image(img, width="stretch")
 
                 if img is not None:
                     show_img = cropped_img
