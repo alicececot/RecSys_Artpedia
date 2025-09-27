@@ -1052,12 +1052,12 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
                 with cols[c]:
                     st.markdown('<div class="art-card">', unsafe_allow_html=True)
 
-                    with st.popover("Ingrandisci 🔍", use_container_width=True):
+                    with st.popover("Ingrandisci 🔍", width='stretch'):
                         if img is not None:
-                            st.image(img, use_container_width=True)
+                            st.image(img, width='stretch')
 
                     if img is not None:
-                        st.image(cropped_img, use_container_width=True)
+                        st.image(cropped_img, width='stretch')
                     else:
                         st.markdown('<div class="img-missing">Immagine locale non trovata</div>', unsafe_allow_html=True)
 
@@ -1069,7 +1069,7 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
                         unsafe_allow_html=True
                     )
 
-                    with st.popover("Perché?", use_container_width=True):
+                    with st.popover("Perché?", width='stretch'):
                         st.markdown(
                             f"<div style='padding: 1rem;'>{explanations.get(gid, 'Spiegazione non disponibile')}</div>",
                             unsafe_allow_html=True
@@ -1112,7 +1112,7 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
             st.markdown("**La spiegazione mi ha aiutato a capire perché l'opera era raccomandata.**")
             q8 = st.radio("trust", options=likert_opts, index=2, key="q8", label_visibility="collapsed")
 
-            submitted = st.form_submit_button("Invia", use_container_width=True)
+            submitted = st.form_submit_button("Invia", width='stretch')
 
         if submitted:
             ratings = {
