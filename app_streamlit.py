@@ -18,9 +18,6 @@ import streamlit.components.v1 as components
 
 from openai import OpenAI
 
-
-import torch
-
 import streamlit as st
 from pathlib import Path
 from urllib.parse import urlparse
