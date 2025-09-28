@@ -50,7 +50,7 @@ def load_css(path: str = "./style.css"):
     except Exception as e:
         st.sidebar.warning(f"CSS non caricato ({path}): {e}")
 
-@st.cache_data(show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False, max_entries=3) 
 def load_artpedia(json_path: str) -> List[Dict]:
     with open(json_path, "r", encoding="utf-8") as f:
         data = json.load(f)
@@ -118,7 +118,7 @@ def load_artpedia(json_path: str) -> List[Dict]:
 
     return items
 
-
+@st.cache_data(ttl=1800, show_spinner=False)
 def ensure_embeddings_local():
     if os.path.exists(EMB_NPZ_PATH):
         return
@@ -153,6 +153,9 @@ def get_gsheet_worksheet():
     ws = sh.sheet1
     return ws
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_gsheet_worksheet_cached():
+    return get_gsheet_worksheet()
 
 def fuse_modalities(img_vec, vis_vec, ctx_vec, meta_vec, w: Tuple[float, float, float, float]):
     a, b, c, d = w
@@ -299,7 +302,19 @@ def load_image(item: Dict) -> Optional[Image.Image]:
 
     return None
 
+@st.cache_data(ttl=7200, show_spinner=False)  # 2 ore
+def load_image_cached(item: Dict) -> Optional[Image.Image]:
+    """Versione cached di load_image"""
+    return load_image(item)
 
+@st.cache_data(ttl=7200, show_spinner=False)
+def get_resized_image(item: Dict, size: tuple = (450, 450)) -> Optional[Image.Image]:
+    """Restituisce immagine già ridimensionata e cached"""
+    img = load_image_cached(item)
+    if img:
+        return ImageOps.fit(img, size, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
+    return None
+    
 @dataclass
 class EmbeddingPack:
     ids: np.ndarray
@@ -308,7 +323,7 @@ class EmbeddingPack:
     ctx: np.ndarray
     meta: np.ndarray
 
-@st.cache_resource(show_spinner=True)
+@st.cache_resource(ttl=7200, show_spinner=False)
 def load_embeddings_from_file(npz_path: str) -> EmbeddingPack:
     if not os.path.exists(npz_path):
         raise FileNotFoundError(f"File NPZ non trovato: {npz_path}")
@@ -878,22 +893,11 @@ def screen_seed_select(data: List[Dict]):
                 with cols[c]:
                     st.markdown('<div class="art-card">', unsafe_allow_html=True)
 
-                    img = load_image(item)
-
-                    with st.popover("Ingrandisci 🔍", width="stretch"):
-                        if img is not None:
-                            st.image(img, width="stretch")
-                            
+                    img = get_resized_image(item, size=(450, 450))
                     if img is not None:
-                        cropped_img = ImageOps.fit(
-                            img, (450, 450), method=Image.Resampling.LANCZOS, centering=(0.5, 0.5)
-                        )
-                        st.image(cropped_img, width="stretch")
+                        st.image(img, width="stretch")
                     else:
-                        st.markdown(
-                            '<div class="img-missing">Immagine non trovata</div>',
-                            unsafe_allow_html=True
-                        )
+                        st.markdown('<div class="img-missing">Immagine non trovata</div>', unsafe_allow_html=True)
 
                     st.markdown(
                         f"<div class='titleline'><span class='title'>{item.get('title','Senza titolo')}</span> "
@@ -971,8 +975,15 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
                 break
             gid = rec_ids[idx]; idx += 1
             item = st.session_state.id2item.get(gid, {})
-            img = load_image(item)
-            cropped_img = ImageOps.fit(img, (450, 450), method=Image.Resampling.LANCZOS,centering=(0.5, 0.5))
+            img = get_resized_image(item, size=(450, 450))  # ← Versione cached
+            
+            with cols[c]:
+                st.markdown('<div class="art-card">', unsafe_allow_html=True)
+
+                if img is not None:
+                    st.image(img, width="stretch")  # ← Già ridimensionata
+                else:
+                    st.markdown('<div class="img-missing">Immagine locale non trovata</div>', unsafe_allow_html=True)
 
 
             with cols[c]:
@@ -1062,29 +1073,80 @@ def screen_done():
     st.success("Grazie! Hai completato il questionario.")
     st.caption(f"Il tuo codice partecipante: {st.session_state.user_id}")
 
-
-
+def preload_critical_data():
+    """Pre-carica tutti i dati critici all'avvio"""
+    if "data_preloaded" not in st.session_state:
+        with st.spinner("Pre-caricamento dati..."):
+            try:
+                # Pre-carica tutto quello che serve
+                json_path = DEFAULT_JSON_PATH
+                data = load_artpedia(json_path)
+                st.session_state.id2item = {it["id"]: it for it in data}
+                
+                # Carica embeddings
+                ensure_embeddings_local()
+                st.session_state.pack = load_embeddings_from_file(EMB_NPZ_PATH)
+                
+                # Segna come pre-caricato
+                st.session_state.data_preloaded = True
+                st.session_state.preload_time = time.time()
+                
+            except Exception as e:
+                st.error(f"Errore nel pre-caricamento: {e}")
+                st.stop()
+                
+def clear_unused_cache():
+    """Pulisce cache non utilizzata periodicamente"""
+    if "last_cache_clear" not in st.session_state:
+        st.session_state.last_cache_clear = time.time()
+    
+    # Pulisci cache ogni 30 minuti (1800 secondi)
+    if time.time() - st.session_state.last_cache_clear > 1800:
+        try:
+            # Pulisce solo le cache data (non le risorse)
+            st.cache_data.clear()
+            st.session_state.last_cache_clear = time.time()
+            print(f"Cache pulita alle {time.strftime('%H:%M:%S')}")
+        except Exception as e:
+            print(f"Errore nella pulizia cache: {e}")
+            
 def main():
     st.set_page_config(page_title=APP_TITLE, layout="wide")
     st.title(APP_TITLE)
     load_css("./style.css")
 
+    # 1. Pre-caricamento dati critici
+    preload_critical_data()
+    
+    # 2. Pulizia cache periodica
+    clear_unused_cache()
+
+    # 3. Verifica che i dati siano stati pre-caricati correttamente
+    if "id2item" not in st.session_state or "pack" not in st.session_state:
+        st.error("Errore nel pre-caricamento dei dati. Ricarica la pagina.")
+        st.stop()
+
+    # 4. Caricamento dati (ora usa principalmente i dati pre-caricati)
     json_path = DEFAULT_JSON_PATH
     if not os.path.exists(json_path):
         st.error(f"Percorso JSON non trovato: {json_path}")
         st.stop()
-        
-    data = load_artpedia(json_path)
-    id2item = {it["id"]: it for it in data}
-    st.session_state.id2item = id2item
-
+    
+    # I dati sono già in session_state da preload_critical_data()
+    # Usiamo quelli invece di ricaricare
+    data = list(st.session_state.id2item.values())
+    
+    # Verifica e prepara gli embeddings se necessario
     ensure_embeddings_local()
     
+    # Gli embeddings sono già caricati in preload_critical_data()
+    # Ma manteniamo questa logica per compatibilità e verifica
     if "pack" not in st.session_state:
         try:
             with st.spinner("Carico embedding precomputati…"):
                 pack = load_embeddings_from_file(EMB_NPZ_PATH)
-
+                
+                # Codice di ordinamento esistente
                 data_ids = np.array([it["id"] for it in data], dtype=np.int64)
                 if not np.array_equal(pack.ids, data_ids):
                     idx_map = {int(g): i for i, g in enumerate(pack.ids.tolist())}
@@ -1108,6 +1170,7 @@ def main():
     w = (ALPHA, BETA, GAMMA, DELTA)  
     _init_session()
 
+    # 5. Gestione delle fasi dell'applicazione
     phase = st.session_state.phase
     if phase == "consent":
         screen_consent()
