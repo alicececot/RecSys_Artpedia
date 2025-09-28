@@ -669,7 +669,7 @@ def _init_session():
     if "user_id" not in st.session_state:
         st.session_state.user_id = secrets.token_hex(4)
     
-    if "exp_style" not in st.session_state:
+    if "exp_style" not in st.session_state or st.session_state.get("phase") == "consent":
         st.session_state.exp_style = _assign_group(st.session_state.user_id)
 
     st.session_state.setdefault("phase", "consent")
@@ -678,7 +678,7 @@ def _init_session():
     st.session_state.setdefault("seed_selected_ids", [])
     st.session_state.setdefault("seed_start_ts", 0)
     st.session_state.setdefault("rec_start_ts", 0)
-    st.session_state.setdefault("slate_id", None)  
+    st.session_state.setdefault("slate_id", None)
 
 
 def screen_consent():
