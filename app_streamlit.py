@@ -1164,10 +1164,6 @@ def main():
                         ctx=pack.ctx[order],
                         meta=pack.meta[order],
                     )
-                    if len(order) != len(data_ids):
-                        st.warning(
-                            "Attenzione: alcuni ID del JSON non sono presenti nel NPZ, verranno ignorati."
-                        )
                 st.session_state.pack = pack
         except Exception as e:
             st.error(f"Errore nel caricamento embeddings: {e}")
