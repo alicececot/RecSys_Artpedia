@@ -420,8 +420,7 @@ def build_llm_system() -> str:
     return ("Sei un esperto di storia dell'arte che genera spiegazioni chiare e concise "
             "per raccomandazioni d'arte. Usa SOLO le informazioni fornite nel contesto. "
             "Non inventare dettagli non presenti. La spiegazione deve essere breve: massimo 2 frasi, 30–40 parole totali. "
-            "Stile: professionale ma accessibile. Collega 1-2 opere apprezzate dall'utente "
-            "con 1-2 caratteristiche dell'opera raccomandata.")
+            "Stile: professionale ma accessibile.")
 
 def build_llm_user_context(item: dict, prefs: dict) -> str:
     def _slice(lst, k): 
