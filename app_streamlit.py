@@ -1100,13 +1100,13 @@ def screen_recommend(data: List[Dict], w: Tuple[float, float, float, float]):
             q5 = st.radio("explanation transparency", options=likert_opts, index=2, key="q5", label_visibility="collapsed")
 
             st.markdown("**La spiegazione ha contribuito ad aumentare la mia fiducia nelle raccomandazioni proposte.**")
-            q6 = st.radio("explanation usefulness", options=likert_opts, index=2, key="q6", label_visibility="collapsed")
+            q6 = st.radio("trust", options=likert_opts, index=2, key="q6", label_visibility="collapsed")
 
             st.markdown("**La spiegazione era chiara e comprensibile.**")
             q7 = st.radio("explanation clarity", options=likert_opts, index=2, key="q7", label_visibility="collapsed")
 
             st.markdown("**La spiegazione mi ha aiutato a capire perché l'opera era raccomandata.**")
-            q8 = st.radio("trust", options=likert_opts, index=2, key="q8", label_visibility="collapsed")
+            q8 = st.radio("explanation usefulness", options=likert_opts, index=2, key="q8", label_visibility="collapsed")
 
             submitted = st.form_submit_button("Invia", width='stretch')
 
